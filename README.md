@@ -455,6 +455,6 @@ This repository also includes:
 These files keep local development and CI aligned on the expected Node.js and npm versions.
 
 ## 🚀 Next Steps
-
-- add one more tool, for example `getOrderItems`, to explore multi-tool scenarios
-- modify the LLM behavior by testing different system messages and comparing how the model reacts to the same user request
+- [x] add multi-turn conversation
+- [ ] add one more tool, for example `getOrderItems`, to explore multi-tool scenarios
+- [ ] modify the LLM behavior by testing different system messages and comparing how the model reacts to the same user request
