@@ -40,7 +40,7 @@ export class AskService {
 
     await this.messageService.createUserMessage(conversation.id, input.message);
 
-    const messages = await this.buildConversationMessages(conversation.id);
+    const messages = await this.buildConversationMessages(conversation);
 
     this.logger.llmRequest('initial', messages);
 
@@ -104,9 +104,7 @@ export class AskService {
       JSON.stringify(result),
     );
 
-    const followUpMessages = await this.buildConversationMessages(
-      conversation.id,
-    );
+    const followUpMessages = await this.buildConversationMessages(conversation);
 
     this.logger.llmRequest('follow-up', followUpMessages);
 
@@ -157,20 +155,13 @@ export class AskService {
     return conversation;
   }
 
-  private async buildConversationMessages(
-    conversationId: string,
-  ): Promise<LlmMessage[]> {
-    const history =
-      await this.messageService.listByConversationId(conversationId);
-
-    const conversation =
-      await this.conversationService.findById(conversationId);
-
-    if (!conversation) {
-      throw new NotFoundException(
-        `Conversation ${conversationId} was not found.`,
-      );
-    }
+  private async buildConversationMessages(conversation: {
+    id: string;
+    systemPrompt?: string;
+  }): Promise<LlmMessage[]> {
+    const history = await this.messageService.listByConversationId(
+      conversation.id,
+    );
 
     return [
       {
