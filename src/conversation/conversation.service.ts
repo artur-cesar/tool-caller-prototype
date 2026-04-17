@@ -11,8 +11,11 @@ export class ConversationService {
     private readonly conversationRepository: Repository<Conversation>,
   ) {}
 
-  create(userId: string) {
-    const conversation = this.conversationRepository.create({ userId });
+  create(userId: string, systemPrompt: string) {
+    const conversation = this.conversationRepository.create({
+      userId,
+      systemPrompt,
+    });
 
     return this.conversationRepository.save(conversation);
   }

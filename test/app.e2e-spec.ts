@@ -81,6 +81,35 @@ describe('AppController (e2e)', () => {
       });
   });
 
+  it('/ask (POST) should support a multi-turn clarification flow', async () => {
+    const firstResponse = await request(app.getHttpServer())
+      .post('/ask')
+      .set('x-user-id', 'user-1')
+      .send({ message: 'What is the status of my order?' })
+      .expect(201);
+
+    expectAskResponse(firstResponse.body as unknown, 'Which order?');
+
+    const responseBody = firstResponse.body as {
+      conversationId: string;
+    };
+
+    await request(app.getHttpServer())
+      .post('/ask')
+      .set('x-user-id', 'user-1')
+      .send({
+        conversationId: responseBody.conversationId,
+        message: 'order 123',
+      })
+      .expect(201)
+      .expect((response) => {
+        expectAskResponse(
+          response.body as unknown,
+          'O pedido 123 foi pago e está em processamento.',
+        );
+      });
+  });
+
   it('/ask (POST) should require x-user-id', () => {
     return request(app.getHttpServer())
       .post('/ask')

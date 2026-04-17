@@ -1,5 +1,6 @@
-import { Body, Controller, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 
+import { UserIdHeader } from '../common/decorators/user-id-header.decorator';
 import { AskService } from './ask.service';
 import { AskDto } from './dto/ask.dto';
 
@@ -8,7 +9,7 @@ export class AskController {
   constructor(private readonly askService: AskService) {}
 
   @Post()
-  async handle(@Body() body: AskDto, @Headers('x-user-id') userId?: string) {
+  async handle(@Body() body: AskDto, @UserIdHeader() userId: string) {
     return this.askService.handle({
       userId,
       message: body.message,

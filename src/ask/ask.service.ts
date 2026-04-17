@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -30,13 +29,12 @@ export class AskService {
   ) {}
 
   async handle(input: {
-    userId?: string;
+    userId: string;
     message: string;
     conversationId?: string;
   }): Promise<AskResponse> {
-    const userId = this.validateUserId(input.userId);
-    const conversation = await this.resolveConversation(
-      userId,
+    const conversation = await this.findOrCreateConversation(
+      input.userId,
       input.conversationId,
     );
 
@@ -133,17 +131,12 @@ export class AskService {
     };
   }
 
-  private validateUserId(userId?: string) {
-    if (!userId) {
-      throw new BadRequestException('x-user-id header is required.');
-    }
-
-    return userId;
-  }
-
-  private async resolveConversation(userId: string, conversationId?: string) {
+  private async findOrCreateConversation(
+    userId: string,
+    conversationId?: string,
+  ) {
     if (!conversationId) {
-      return this.conversationService.create(userId);
+      return this.conversationService.create(userId, ASK_SYSTEM_PROMPT);
     }
 
     const conversation =
@@ -170,10 +163,19 @@ export class AskService {
     const history =
       await this.messageService.listByConversationId(conversationId);
 
+    const conversation =
+      await this.conversationService.findById(conversationId);
+
+    if (!conversation) {
+      throw new NotFoundException(
+        `Conversation ${conversationId} was not found.`,
+      );
+    }
+
     return [
       {
         role: 'system',
-        content: ASK_SYSTEM_PROMPT,
+        content: conversation.systemPrompt || ASK_SYSTEM_PROMPT,
       },
       ...history.flatMap((message) => this.mapMessageToLlmMessage(message)),
     ];

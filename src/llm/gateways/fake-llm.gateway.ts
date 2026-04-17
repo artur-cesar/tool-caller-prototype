@@ -47,9 +47,13 @@ export class FakeLlmGateway implements LlmGateway {
       };
     }
 
+    const nonSystemMessages = input.messages.filter(
+      (message) => message.role !== 'system',
+    );
     const lastUserMessage =
-      [...input.messages].reverse().find((m) => m.role === 'user')?.content ??
-      '';
+      [...nonSystemMessages].reverse().find((m) => m.role === 'user')
+        ?.content ?? '';
+    const previousMessages = nonSystemMessages.slice(0, -1);
 
     const normalized = lastUserMessage.toLowerCase();
     const orderIdMatch = normalized.match(/\b\d{3,}\b/);
@@ -58,14 +62,36 @@ export class FakeLlmGateway implements LlmGateway {
       normalized.includes('pedido') ||
       normalized.includes('order') ||
       normalized.includes('status');
+    const isClarifyingOrderStatus =
+      previousMessages.some((message) => {
+        if (message.role === 'user') {
+          const content = message.content.toLowerCase();
+
+          return (
+            content.includes('pedido') ||
+            content.includes('order') ||
+            content.includes('status')
+          );
+        }
+
+        return false;
+      }) &&
+      previousMessages.some(
+        (message) =>
+          message.role === 'assistant' &&
+          /which order|qual pedido|de qual order|de qual pedido/i.test(
+            message.content,
+          ),
+      );
 
     this.debug('Last user message', truncate(lastUserMessage));
     this.debug('Order detection', {
       wantsOrderStatus,
+      isClarifyingOrderStatus,
       orderIdMatch: orderIdMatch?.[0],
     });
 
-    if (wantsOrderStatus && orderIdMatch) {
+    if ((wantsOrderStatus || isClarifyingOrderStatus) && orderIdMatch) {
       this.logger.log('Fake LLM is issuing a tool call');
       return {
         type: 'tool_call',
@@ -75,6 +101,13 @@ export class FakeLlmGateway implements LlmGateway {
         arguments: {
           orderId: orderIdMatch[0],
         },
+      };
+    }
+
+    if (wantsOrderStatus && !orderIdMatch) {
+      return {
+        type: 'final_answer',
+        content: 'Which order?',
       };
     }
 

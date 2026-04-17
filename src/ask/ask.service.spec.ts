@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { OrderRepository } from 'src/order/order.repository';
 
 import { ConversationService } from '../conversation/conversation.service';
@@ -63,6 +59,7 @@ describe('AskService', () => {
     conversationService.create.mockResolvedValue({
       id: 'conversation-1',
       userId: 'user-1',
+      systemPrompt: 'stored system prompt',
     });
     messageService.listByConversationId.mockResolvedValue([
       {
@@ -82,12 +79,30 @@ describe('AskService', () => {
       message: 'hello',
     });
 
-    expect(conversationService.create).toHaveBeenCalledWith('user-1');
+    expect(conversationService.create).toHaveBeenCalledWith(
+      'user-1',
+      expect.stringContaining(
+        'You are an assistant for order support experiments.',
+      ),
+    );
     expect(messageService.createUserMessage).toHaveBeenCalledWith(
       'conversation-1',
       'hello',
     );
     expect(llmGateway.generate).toHaveBeenCalledTimes(1);
+    expect(llmGateway.generate).toHaveBeenCalledWith({
+      messages: [
+        {
+          role: 'system',
+          content: 'stored system prompt',
+        },
+        {
+          role: 'user',
+          content: 'hello',
+        },
+      ],
+      tools: expect.any(Array),
+    });
     expect(messageService.createAssistantMessage).toHaveBeenCalledWith(
       'conversation-1',
       'Direct answer',
@@ -104,6 +119,7 @@ describe('AskService', () => {
     conversationService.findById.mockResolvedValue({
       id: 'conversation-1',
       userId: 'user-1',
+      systemPrompt: 'stored system prompt',
     });
     messageService.listByConversationId
       .mockResolvedValueOnce([
@@ -220,9 +236,7 @@ describe('AskService', () => {
       messages: [
         {
           role: 'system',
-          content: expect.stringContaining(
-            'You are an assistant for order support experiments.',
-          ),
+          content: 'stored system prompt',
         },
         {
           role: 'user',
@@ -243,9 +257,7 @@ describe('AskService', () => {
       messages: [
         {
           role: 'system',
-          content: expect.stringContaining(
-            'You are an assistant for order support experiments.',
-          ),
+          content: 'stored system prompt',
         },
         {
           role: 'user',
@@ -288,6 +300,7 @@ describe('AskService', () => {
     conversationService.create.mockResolvedValue({
       id: 'conversation-1',
       userId: 'user-1',
+      systemPrompt: 'stored system prompt',
     });
     messageService.listByConversationId.mockResolvedValue([
       {
@@ -330,14 +343,6 @@ describe('AskService', () => {
     });
   });
 
-  it('should reject requests without x-user-id', async () => {
-    await expect(
-      service.handle({
-        message: 'hello',
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
   it('should reject when the conversation does not exist', async () => {
     conversationService.findById.mockResolvedValue(null);
 
@@ -354,6 +359,7 @@ describe('AskService', () => {
     conversationService.findById.mockResolvedValue({
       id: 'conversation-1',
       userId: 'user-2',
+      systemPrompt: 'stored system prompt',
     });
 
     await expect(
@@ -363,5 +369,47 @@ describe('AskService', () => {
         conversationId: 'conversation-1',
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('should fall back to the current prompt when an old conversation has no stored prompt', async () => {
+    conversationService.findById.mockResolvedValue({
+      id: 'conversation-1',
+      userId: 'user-1',
+      systemPrompt: '',
+    });
+    messageService.listByConversationId.mockResolvedValue([
+      {
+        id: 'message-1',
+        conversationId: 'conversation-1',
+        role: MessageRole.USER,
+        content: 'hello',
+      },
+    ] as never[]);
+    llmGateway.generate.mockResolvedValue({
+      type: 'final_answer',
+      content: 'Direct answer',
+    });
+
+    await service.handle({
+      userId: 'user-1',
+      message: 'hello',
+      conversationId: 'conversation-1',
+    });
+
+    expect(llmGateway.generate).toHaveBeenCalledWith({
+      messages: [
+        {
+          role: 'system',
+          content: expect.stringContaining(
+            'You are an assistant for order support experiments.',
+          ),
+        },
+        {
+          role: 'user',
+          content: 'hello',
+        },
+      ],
+      tools: expect.any(Array),
+    });
   });
 });
