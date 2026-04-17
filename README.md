@@ -128,35 +128,82 @@ Notes:
 
 - The app container connects to PostgreSQL using `DB_HOST=postgres`, which is
   the Compose service name.
+- Docker Compose forces `DATABASE_ENABLED=true` for the app container, even if
+  your local `.env` disables the database for other workflows.
 - PostgreSQL data is persisted in the named volume `postgres_data`.
+- App dependencies inside the container are persisted in the named volume
+  `app_node_modules`.
 - Both containers are attached to the explicit `tool-caller-network`.
 - `PORT` controls both the NestJS listen port and the published app port in
   Docker Compose.
+- The application source code is mounted into the container, and the app runs
+  with `npm run start:dev` for hot reload during local development.
 - `depends_on` is used with a PostgreSQL health check to improve startup
   ordering, but the setup still stays development-focused.
 
+Development sync behavior:
+
+- after the first `docker compose up --build`, local source changes are synced
+  into the app container through a bind mount
+- Nest runs in watch mode inside Docker, so code changes trigger automatic
+  reloads without rebuilding the image
+- if you change dependencies in `package.json`, rebuild the container with
+  `docker compose up --build`
+
 ## 🧠 What The Code Does
 
-The application exposes a `POST /ask` endpoint.
+The application exposes a `POST /ask` endpoint and persists conversations and
+messages in PostgreSQL.
 
-It receives a user message, sends it to an LLM gateway together with tool definitions, and handles one of two outcomes:
+Every `/ask` request:
+
+- requires the `x-user-id` header
+- creates or reuses a persisted conversation
+- persists the incoming user message
+- loads stored message history before calling the LLM
+- persists assistant/tool messages generated during the flow
+
+The LLM interaction still handles one of two outcomes:
 
 - a direct final answer from the LLM
 - a tool call request from the LLM
 
-When the model requests a tool, the application executes the internal business logic for that tool, appends the tool result to the conversation, and sends the updated conversation back to the LLM to obtain the final answer.
+When the model requests a tool, the application executes the internal business
+logic for that tool, persists the tool call and tool result, and sends the
+updated conversation back to the LLM to obtain the final answer.
 
-Current example flow:
+Single-turn persisted flow:
 
 - user asks for an order status
+- the request includes `x-user-id`
+- the application creates a conversation when `conversationId` is missing
+- the user message is saved in the database
 - the LLM requests the `getOrderStatus` tool
+- the assistant tool-call message is saved
 - the application queries the internal order repository
-- the tool result is returned to the LLM
+- the tool result is saved as a tool message
 - the LLM generates the final natural-language response
+- the final assistant answer is saved
+
+Multi-turn persisted flow:
+
+- the first request creates a conversation and returns its `conversationId`
+- the next request sends the same `conversationId` and the same `x-user-id`
+- the application loads the stored message history for that conversation
+- the LLM receives the system prompt plus the persisted history in stable order
+- any new assistant/tool messages generated in the second turn are also saved
 
 ## 📬 API Example
 
-Request:
+Single-turn request:
+
+Headers:
+
+```text
+x-user-id: user-1
+```
+
+Body:
 
 ```json
 {
@@ -168,15 +215,70 @@ Success response:
 
 ```json
 {
+  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
   "type": "final_answer",
   "content": "Your order 789 has been **DELIVERED**! Your order has successfully reached you."
 }
 ```
 
-Not found response:
+Multi-turn first request:
+
+Headers:
+
+```text
+x-user-id: user-1
+```
+
+Body:
 
 ```json
 {
+  "message": "What is the status of my order?"
+}
+```
+
+Example first response:
+
+```json
+{
+  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
+  "type": "final_answer",
+  "content": "Which order?"
+}
+```
+
+Multi-turn follow-up request:
+
+Headers:
+
+```text
+x-user-id: user-1
+```
+
+Body:
+
+```json
+{
+  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
+  "message": "order 123"
+}
+```
+
+Example follow-up response:
+
+```json
+{
+  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
+  "type": "final_answer",
+  "content": "Your order #123 has a status of **PAID**."
+}
+```
+
+Order not found response:
+
+```json
+{
+  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
   "type": "final_answer",
   "content": "The status of your order **ID_INEXISTENT** is **NOT_FOUND**. \n\nThis means the order could not be found in the system. Please verify that you've provided the correct order ID. If you believe this is an error or have any questions, please double-check your order confirmation details."
 }
@@ -353,6 +455,6 @@ This repository also includes:
 These files keep local development and CI aligned on the expected Node.js and npm versions.
 
 ## 🚀 Next Steps
-
-- add one more tool, for example `getOrderItems`, to explore multi-tool scenarios
-- modify the LLM behavior by testing different system messages and comparing how the model reacts to the same user request
+- [x] add multi-turn conversation
+- [ ] add one more tool, for example `getOrderItems`, to explore multi-tool scenarios
+- [ ] modify the LLM behavior by testing different system messages and comparing how the model reacts to the same user request

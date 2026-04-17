@@ -56,6 +56,55 @@ describe('FakeLlmGateway', () => {
     });
   });
 
+  it('should ask for clarification when the user requests order status without an id', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'user',
+          content: 'What is the status of my order?',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'final_answer',
+      content: 'Which order?',
+    });
+  });
+
+  it('should continue a persisted multi-turn conversation after asking which order', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'system',
+          content: 'system',
+        },
+        {
+          role: 'user',
+          content: 'What is the status of my order?',
+        },
+        {
+          role: 'assistant',
+          content: 'Which order?',
+        },
+        {
+          role: 'user',
+          content: 'order 123',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'tool_call',
+      content: "I'll check the order status for you.",
+      toolName: 'getOrderStatus',
+      toolUseId: 'fake-tool-use-id',
+      arguments: {
+        orderId: '123',
+      },
+    });
+  });
+
   it('should return a final answer when no valid order lookup is identified', async () => {
     const result = await gateway.generate({
       messages: [

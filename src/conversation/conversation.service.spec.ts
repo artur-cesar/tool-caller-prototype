@@ -21,14 +21,18 @@ describe('ConversationService', () => {
     const conversation = {
       id: 'conversation-1',
       userId: 'user-1',
+      systemPrompt: 'system prompt',
     } as Conversation;
 
     repository.create.mockReturnValue(conversation);
     repository.save.mockResolvedValue(conversation);
 
-    const result = await service.create('user-1');
+    const result = await service.create('user-1', 'system prompt');
 
-    expect(repository.create).toHaveBeenCalledWith({ userId: 'user-1' });
+    expect(repository.create).toHaveBeenCalledWith({
+      userId: 'user-1',
+      systemPrompt: 'system prompt',
+    });
     expect(repository.save).toHaveBeenCalledWith(conversation);
     expect(result).toBe(conversation);
   });

@@ -17,6 +17,9 @@ export class Conversation {
   @Column({ type: 'varchar' })
   userId: string;
 
+  @Column({ type: 'text' })
+  systemPrompt: string;
+
   @OneToMany(() => Message, (message) => message.conversation)
   messages: Message[];
 
