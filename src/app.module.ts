@@ -14,6 +14,12 @@ import { AnthropicLlmGateway } from './llm/gateways/anthropic/anthropic-llm.gate
 import { LLM_GATEWAY } from './llm/types/llm.gateway';
 import { MessageModule } from './message/message.module';
 import { OrderRepository } from './order/order.repository';
+import { ToolExecutorService } from './tools/tool-executor.service';
+import { ConversationAccessService } from './turn/conversation-access.service';
+import { ConversationHistoryBuilder } from './turn/conversation-history.builder';
+import { ConversationHistoryTruncator } from './turn/conversation-history.truncator';
+import { ConversationMessageMapper } from './turn/conversation-message.mapper';
+import { TurnRunnerService } from './turn/turn-runner.service';
 
 @Module({
   imports: [
@@ -27,6 +33,12 @@ import { OrderRepository } from './order/order.repository';
     AppService,
     AskLogger,
     AskService,
+    ConversationAccessService,
+    ConversationHistoryBuilder,
+    ConversationHistoryTruncator,
+    ConversationMessageMapper,
+    ToolExecutorService,
+    TurnRunnerService,
     AnthropicLogger,
     OrderRepository,
     {
