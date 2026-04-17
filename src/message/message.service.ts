@@ -32,10 +32,25 @@ export class MessageService {
     });
   }
 
+  createAssistantToolCallMessage(
+    conversationId: string,
+    content: string,
+    toolName: string,
+    toolUseId: string | null,
+  ) {
+    return this.createMessage({
+      conversationId,
+      role: MessageRole.ASSISTANT,
+      content,
+      toolName,
+      toolUseId,
+    });
+  }
+
   createToolMessage(
     conversationId: string,
     toolName: string,
-    toolUseId: string,
+    toolUseId: string | null,
     content: string,
   ) {
     return this.createMessage({
@@ -50,7 +65,7 @@ export class MessageService {
   listByConversationId(conversationId: string) {
     return this.messageRepository.find({
       where: { conversationId },
-      order: { createdAt: 'ASC' },
+      order: { createdAt: 'ASC', id: 'ASC' },
     });
   }
 
