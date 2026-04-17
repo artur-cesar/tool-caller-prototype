@@ -73,6 +73,37 @@ describe('MessageService', () => {
     expect(result).toBe(message);
   });
 
+  it('should create an assistant tool call message', async () => {
+    const message = {
+      id: 'message-1',
+      conversationId: 'conversation-1',
+      role: MessageRole.ASSISTANT,
+      content: "I'll check it.",
+      toolName: 'getOrderStatus',
+      toolUseId: 'toolu_123',
+    } as Message;
+
+    repository.create.mockReturnValue(message);
+    repository.save.mockResolvedValue(message);
+
+    const result = await service.createAssistantToolCallMessage(
+      'conversation-1',
+      "I'll check it.",
+      'getOrderStatus',
+      'toolu_123',
+    );
+
+    expect(repository.create).toHaveBeenCalledWith({
+      conversationId: 'conversation-1',
+      role: MessageRole.ASSISTANT,
+      content: "I'll check it.",
+      toolName: 'getOrderStatus',
+      toolUseId: 'toolu_123',
+    });
+    expect(repository.save).toHaveBeenCalledWith(message);
+    expect(result).toBe(message);
+  });
+
   it('should create a tool message', async () => {
     const message = {
       id: 'message-1',
@@ -112,7 +143,7 @@ describe('MessageService', () => {
 
     expect(repository.find).toHaveBeenCalledWith({
       where: { conversationId: 'conversation-1' },
-      order: { createdAt: 'ASC' },
+      order: { createdAt: 'ASC', id: 'ASC' },
     });
     expect(result).toBe(messages);
   });

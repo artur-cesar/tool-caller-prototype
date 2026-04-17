@@ -27,18 +27,28 @@ describe('AskController', () => {
 
   it('should delegate the message to AskService.handle', async () => {
     askService.handle.mockResolvedValue({
+      conversationId: 'conversation-1',
       type: 'final_answer',
       content: 'Order 123 has been paid.',
     });
 
-    const result = await controller.handle({
-      message: 'What is the status of order 123?',
-    });
+    const result = await controller.handle(
+      {
+        message: 'What is the status of order 123?',
+        conversationId: 'conversation-1',
+      },
+      'user-1',
+    );
 
     expect(askService.handle).toHaveBeenCalledWith(
-      'What is the status of order 123?',
+      expect.objectContaining({
+        userId: 'user-1',
+        message: 'What is the status of order 123?',
+        conversationId: 'conversation-1',
+      }),
     );
     expect(result).toEqual({
+      conversationId: 'conversation-1',
       type: 'final_answer',
       content: 'Order 123 has been paid.',
     });
