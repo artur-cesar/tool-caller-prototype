@@ -23,6 +23,8 @@ In short, this project is a small NestJS API used to explore how an application 
 - ESLint
 - Prettier
 - Anthropic SDK
+- PostgreSQL
+- TypeORM
 
 ## ▶️ How To Run
 
@@ -36,6 +38,18 @@ Run in development:
 
 ```bash
 npm run start:dev
+```
+
+Run with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Environment:
+
+```bash
+cp .env.example .env
 ```
 
 Run unit tests:
@@ -55,6 +69,71 @@ Build:
 ```bash
 npm run build
 ```
+
+## 🗄️ Database Foundation
+
+The project now includes a minimal PostgreSQL + TypeORM foundation for future
+conversation persistence.
+
+Files:
+
+- `src/database/database.module.ts`: reusable Nest module that wires the TypeORM
+  connection into the application.
+- `src/database/typeorm.config.ts`: shared TypeORM option builder used by both
+  Nest runtime startup and the CLI data source.
+- `src/database/data-source.ts`: singleton `DataSource` instance required by the
+  TypeORM CLI for migrations.
+- `src/database/migrations/`: migration directory for schema changes.
+
+Required database environment variables:
+
+- `DB_HOST`
+- `DB_PORT`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `DB_DATABASE`
+
+Optional:
+
+- `DATABASE_ENABLED=false` disables the TypeORM connection. The test suite uses
+  `NODE_ENV=test`, so the database module stays off unless explicitly enabled.
+
+Migration commands:
+
+```bash
+npm run migration:create --name=CreateConversationTables
+npm run migration:generate --name=CreateConversationTables
+npm run migration:run
+npm run migration:revert
+```
+
+The migration scripts use `src/database/data-source.ts`, so future entities can
+be added without refactoring the CLI setup.
+
+## 🐳 Docker Setup
+
+The project now includes a minimal local Docker setup with one NestJS container
+and one PostgreSQL container.
+
+Files:
+
+- `Dockerfile`: builds the NestJS application image with the project
+  dependencies and source code.
+- `docker-compose.yml`: starts the `app` and `postgres` services, defines the
+  shared network, and declares the named PostgreSQL volume.
+- `.dockerignore`: keeps local-only files and large folders out of the Docker
+  build context.
+
+Notes:
+
+- The app container connects to PostgreSQL using `DB_HOST=postgres`, which is
+  the Compose service name.
+- PostgreSQL data is persisted in the named volume `postgres_data`.
+- Both containers are attached to the explicit `tool-caller-network`.
+- `PORT` controls both the NestJS listen port and the published app port in
+  Docker Compose.
+- `depends_on` is used with a PostgreSQL health check to improve startup
+  ordering, but the setup still stays development-focused.
 
 ## 🧠 What The Code Does
 
