@@ -7,13 +7,17 @@ import { AppService } from './app.service';
 import { AskController } from './ask/ask.controller';
 import { AskLogger } from './ask/ask.logger';
 import { AskService } from './ask/ask.service';
+import { DatabaseModule } from './database/database.module';
 import { AnthropicLogger } from './llm/gateways/anthropic/anthropic.logger';
 import { AnthropicLlmGateway } from './llm/gateways/anthropic/anthropic-llm.gateway';
 import { LLM_GATEWAY } from './llm/types/llm.gateway';
 import { OrderRepository } from './order/order.repository';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true })],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    DatabaseModule.register(),
+  ],
   controllers: [AppController, AskController],
   providers: [
     AppService,
