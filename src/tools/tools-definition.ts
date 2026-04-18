@@ -12,4 +12,15 @@ export const tools: ToolDefinition[] = [
       required: ['orderId'],
     },
   },
+  {
+    name: 'getOrderItems',
+    description: 'Returns the items contained in an order by its ID.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string' },
+      },
+      required: ['orderId'],
+    },
+  },
 ];

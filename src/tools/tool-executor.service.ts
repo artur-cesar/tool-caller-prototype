@@ -14,15 +14,24 @@ export class ToolExecutorService {
     toolName: string,
     argumentsInput: Record<string, unknown>,
   ): ToolExecutionResult {
-    if (toolName !== 'getOrderStatus') {
-      return { supported: false };
+    if (toolName === 'getOrderStatus') {
+      return {
+        supported: true,
+        result: this.orderRepository.getOrderStatus(
+          String(argumentsInput.orderId),
+        ),
+      };
     }
 
-    return {
-      supported: true,
-      result: this.orderRepository.getOrderStatus(
-        String(argumentsInput.orderId),
-      ),
-    };
+    if (toolName === 'getOrderItems') {
+      return {
+        supported: true,
+        result: this.orderRepository.getOrderItems(
+          String(argumentsInput.orderId),
+        ),
+      };
+    }
+
+    return { supported: false };
   }
 }

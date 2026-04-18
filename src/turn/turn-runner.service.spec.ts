@@ -234,6 +234,89 @@ describe('TurnRunnerService', () => {
     });
   });
 
+  it('should complete the tool flow for getOrderItems', async () => {
+    historyBuilder.build
+      .mockResolvedValueOnce([
+        {
+          role: 'system',
+          content: 'stored system prompt',
+        },
+        {
+          role: 'user',
+          content: 'What items are in order 123?',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          role: 'system',
+          content: 'stored system prompt',
+        },
+        {
+          role: 'user',
+          content: 'What items are in order 123?',
+        },
+        {
+          role: 'assistant',
+          content: "I'll check it.",
+          toolName: 'getOrderItems',
+          toolUseId: 'toolu_456',
+        },
+        {
+          role: 'tool',
+          toolName: 'getOrderItems',
+          toolUseId: 'toolu_456',
+          content: JSON.stringify({
+            orderId: '123',
+            found: true,
+            items: ['Keyboard', 'Mouse'],
+          }),
+        },
+      ]);
+    llmGateway.generate
+      .mockResolvedValueOnce({
+        type: 'tool_call',
+        content: "I'll check it.",
+        toolName: 'getOrderItems',
+        toolUseId: 'toolu_456',
+        arguments: {
+          orderId: '123',
+        },
+      })
+      .mockResolvedValueOnce({
+        type: 'final_answer',
+        content: 'Order 123 contains Keyboard and Mouse.',
+      });
+    toolExecutorService.execute.mockReturnValue({
+      supported: true,
+      result: {
+        orderId: '123',
+        found: true,
+        items: ['Keyboard', 'Mouse'],
+      },
+    });
+
+    const result = await service.run(conversation);
+
+    expect(toolExecutorService.execute).toHaveBeenCalledWith('getOrderItems', {
+      orderId: '123',
+    });
+    expect(messageService.createToolMessage).toHaveBeenCalledWith(
+      'conversation-1',
+      'getOrderItems',
+      'toolu_456',
+      JSON.stringify({
+        orderId: '123',
+        found: true,
+        items: ['Keyboard', 'Mouse'],
+      }),
+    );
+    expect(result).toEqual({
+      conversationId: 'conversation-1',
+      type: 'final_answer',
+      content: 'Order 123 contains Keyboard and Mouse.',
+    });
+  });
+
   it('should persist a fallback answer when the follow-up llm call does not finish', async () => {
     historyBuilder.build
       .mockResolvedValueOnce([

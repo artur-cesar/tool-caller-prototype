@@ -1,14 +1,36 @@
+type MockOrder = {
+  status: string;
+  items: string[];
+};
+
+const mockOrders: Record<string, MockOrder> = {
+  '123': {
+    status: 'PAID',
+    items: ['Keyboard', 'Mouse'],
+  },
+  '456': {
+    status: 'PREPARING',
+    items: ['Monitor'],
+  },
+  '789': {
+    status: 'DELIVERED',
+    items: ['Laptop', 'USB-C Cable', 'Dock'],
+  },
+};
+
 export class OrderRepository {
   getOrderStatus(orderId: string) {
-    const mockOrders: Record<string, string> = {
-      '123': 'PAID',
-      '456': 'PREPARING',
-      '789': 'DELIVERED',
-    };
-
     return {
       orderId,
-      status: mockOrders[orderId] ?? 'NOT_FOUND',
+      status: mockOrders[orderId]?.status ?? 'NOT_FOUND',
+    };
+  }
+
+  getOrderItems(orderId: string) {
+    return {
+      orderId,
+      found: Boolean(mockOrders[orderId]),
+      items: mockOrders[orderId]?.items ?? [],
     };
   }
 }

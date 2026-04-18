@@ -34,12 +34,39 @@ export class FakeLlmGateway implements LlmGateway {
       this.logger.log('Returning final answer from tool result');
       this.debug('Last tool message', lastToolMessage);
 
-      const result = JSON.parse(lastToolMessage.content) as {
-        orderId: string;
-        status: string;
-      };
+      const result = JSON.parse(lastToolMessage.content) as
+        | {
+            orderId: string;
+            status: string;
+          }
+        | {
+            orderId: string;
+            found: boolean;
+            items: string[];
+          };
 
       this.debug('Parsed tool result', result);
+
+      if (lastToolMessage.toolName === 'getOrderItems') {
+        if (!('found' in result) || !result.found) {
+          return {
+            type: 'final_answer',
+            content: `I could not find items for order ${result.orderId}.`,
+          };
+        }
+
+        return {
+          type: 'final_answer',
+          content: `Order ${result.orderId} items: ${result.items.join(', ')}.`,
+        };
+      }
+
+      if (!('status' in result)) {
+        return {
+          type: 'final_answer',
+          content: 'I could not interpret the order status result.',
+        };
+      }
 
       return {
         type: 'final_answer',
@@ -57,12 +84,14 @@ export class FakeLlmGateway implements LlmGateway {
 
     const normalized = lastUserMessage.toLowerCase();
     const orderIdMatch = normalized.match(/\b\d{3,}\b/);
+    const wantsOrderItems =
+      normalized.includes('item') || normalized.includes('items');
 
     const wantsOrderStatus =
       normalized.includes('pedido') ||
       normalized.includes('order') ||
       normalized.includes('status');
-    const isClarifyingOrderStatus =
+    const isClarifyingOrderLookup =
       previousMessages.some((message) => {
         if (message.role === 'user') {
           const content = message.content.toLowerCase();
@@ -70,7 +99,9 @@ export class FakeLlmGateway implements LlmGateway {
           return (
             content.includes('pedido') ||
             content.includes('order') ||
-            content.includes('status')
+            content.includes('status') ||
+            content.includes('item') ||
+            content.includes('items')
           );
         }
 
@@ -86,12 +117,47 @@ export class FakeLlmGateway implements LlmGateway {
 
     this.debug('Last user message', truncate(lastUserMessage));
     this.debug('Order detection', {
+      wantsOrderItems,
       wantsOrderStatus,
-      isClarifyingOrderStatus,
+      isClarifyingOrderLookup,
       orderIdMatch: orderIdMatch?.[0],
     });
 
-    if ((wantsOrderStatus || isClarifyingOrderStatus) && orderIdMatch) {
+    if (
+      (wantsOrderStatus || wantsOrderItems || isClarifyingOrderLookup) &&
+      orderIdMatch
+    ) {
+      if (wantsOrderItems) {
+        this.logger.log('Fake LLM is issuing an items tool call');
+        return {
+          type: 'tool_call',
+          content: "I'll check the order items for you.",
+          toolName: 'getOrderItems',
+          toolUseId: 'fake-tool-use-id',
+          arguments: {
+            orderId: orderIdMatch[0],
+          },
+        };
+      }
+
+      if (
+        previousMessages.some(
+          (message) =>
+            message.role === 'user' && /item|items/i.test(message.content),
+        )
+      ) {
+        this.logger.log('Fake LLM is continuing an items lookup');
+        return {
+          type: 'tool_call',
+          content: "I'll check the order items for you.",
+          toolName: 'getOrderItems',
+          toolUseId: 'fake-tool-use-id',
+          arguments: {
+            orderId: orderIdMatch[0],
+          },
+        };
+      }
+
       this.logger.log('Fake LLM is issuing a tool call');
       return {
         type: 'tool_call',
@@ -104,7 +170,7 @@ export class FakeLlmGateway implements LlmGateway {
       };
     }
 
-    if (wantsOrderStatus && !orderIdMatch) {
+    if ((wantsOrderStatus || wantsOrderItems) && !orderIdMatch) {
       return {
         type: 'final_answer',
         content: 'Which order?',

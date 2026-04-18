@@ -35,6 +35,27 @@ describe('FakeLlmGateway', () => {
     });
   });
 
+  it('should return a tool call when the user asks for order items with a valid id', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'user',
+          content: 'I want to know the items of my order 123',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'tool_call',
+      content: "I'll check the order items for you.",
+      toolName: 'getOrderItems',
+      toolUseId: 'fake-tool-use-id',
+      arguments: {
+        orderId: '123',
+      },
+    });
+  });
+
   it('should support order detection in portuguese', async () => {
     const result = await gateway.generate({
       messages: [
@@ -105,6 +126,39 @@ describe('FakeLlmGateway', () => {
     });
   });
 
+  it('should continue a persisted multi-turn items conversation after asking which order', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'system',
+          content: 'system',
+        },
+        {
+          role: 'user',
+          content: 'What items are in my order?',
+        },
+        {
+          role: 'assistant',
+          content: 'Which order?',
+        },
+        {
+          role: 'user',
+          content: 'order 123',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'tool_call',
+      content: "I'll check the order items for you.",
+      toolName: 'getOrderItems',
+      toolUseId: 'fake-tool-use-id',
+      arguments: {
+        orderId: '123',
+      },
+    });
+  });
+
   it('should return a final answer when no valid order lookup is identified', async () => {
     const result = await gateway.generate({
       messages: [
@@ -141,6 +195,29 @@ describe('FakeLlmGateway', () => {
     expect(result).toEqual({
       type: 'final_answer',
       content: 'Order 789 status: DELIVERED.',
+    });
+  });
+
+  it('should return a final answer from an order items tool result', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'user',
+          content: 'What are the items in order 123?',
+        },
+        {
+          role: 'tool',
+          toolName: 'getOrderItems',
+          toolUseId: 'fake-tool-use-id',
+          content:
+            '{"orderId":"123","found":true,"items":["Keyboard","Mouse"]}',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'final_answer',
+      content: 'Order 123 items: Keyboard, Mouse.',
     });
   });
 });

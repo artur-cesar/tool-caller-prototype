@@ -7,6 +7,7 @@ describe('ToolExecutorService', () => {
 
   beforeEach(() => {
     orderRepository = {
+      getOrderItems: jest.fn(),
       getOrderStatus: jest.fn(),
     } as unknown as jest.Mocked<OrderRepository>;
 
@@ -29,6 +30,28 @@ describe('ToolExecutorService', () => {
       result: {
         orderId: '123',
         status: 'PAID',
+      },
+    });
+  });
+
+  it('should execute getOrderItems', () => {
+    orderRepository.getOrderItems.mockReturnValue({
+      orderId: '123',
+      found: true,
+      items: ['Keyboard', 'Mouse'],
+    });
+
+    const result = service.execute('getOrderItems', {
+      orderId: '123',
+    });
+
+    expect(orderRepository.getOrderItems).toHaveBeenCalledWith('123');
+    expect(result).toEqual({
+      supported: true,
+      result: {
+        orderId: '123',
+        found: true,
+        items: ['Keyboard', 'Mouse'],
       },
     });
   });
