@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
-import { ASK_SYSTEM_PROMPT } from '../ask/prompts/system.prompt';
-import { Conversation } from '../conversation/conversation.entity';
-import { LlmMessage } from '../llm/types/llm.types';
-import { MessageService } from '../message/message.service';
+import { ASK_SYSTEM_PROMPT } from '../../ask/prompts/system.prompt';
+import { Conversation } from '../../conversation/conversation.entity';
+import { LlmMessage } from '../../llm/types/llm.types';
+import { MessageService } from '../../message/message.service';
 import { ConversationHistoryTruncator } from './conversation-history.truncator';
 import { ConversationMessageMapper } from './conversation-message.mapper';
 

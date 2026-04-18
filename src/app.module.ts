@@ -15,9 +15,9 @@ import { LLM_GATEWAY } from './llm/types/llm.gateway';
 import { MessageModule } from './message/message.module';
 import { OrderRepository } from './order/order.repository';
 import { ToolExecutorService } from './tools/tool-executor.service';
-import { ConversationHistoryBuilder } from './turn/conversation-history.builder';
-import { ConversationHistoryTruncator } from './turn/conversation-history.truncator';
-import { ConversationMessageMapper } from './turn/conversation-message.mapper';
+import { ConversationHistoryBuilder } from './turn/history/conversation-history.builder';
+import { ConversationHistoryTruncator } from './turn/history/conversation-history.truncator';
+import { ConversationMessageMapper } from './turn/history/conversation-message.mapper';
 import { TurnRunnerService } from './turn/turn-runner.service';
 
 @Module({

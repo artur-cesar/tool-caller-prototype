@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
-import { LlmMessage } from '../llm/types/llm.types';
-import { Message } from '../message/message.entity';
-import { MessageRole } from '../message/message-role.enum';
+import { LlmMessage } from '../../llm/types/llm.types';
+import { Message } from '../../message/message.entity';
+import { MessageRole } from '../../message/message-role.enum';
 
 @Injectable()
 export class ConversationMessageMapper {

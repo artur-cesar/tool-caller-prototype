@@ -2,7 +2,7 @@ import { AskLogger } from '../ask/ask.logger';
 import type { LlmGateway } from '../llm/types/llm.gateway';
 import { MessageService } from '../message/message.service';
 import { ToolExecutorService } from '../tools/tool-executor.service';
-import { ConversationHistoryBuilder } from './conversation-history.builder';
+import { ConversationHistoryBuilder } from './history/conversation-history.builder';
 import { TurnRunnerService } from './turn-runner.service';
 
 describe('TurnRunnerService', () => {
