@@ -15,7 +15,6 @@ import { LLM_GATEWAY } from './llm/types/llm.gateway';
 import { MessageModule } from './message/message.module';
 import { OrderRepository } from './order/order.repository';
 import { ToolExecutorService } from './tools/tool-executor.service';
-import { ConversationAccessService } from './turn/conversation-access.service';
 import { ConversationHistoryBuilder } from './turn/conversation-history.builder';
 import { ConversationHistoryTruncator } from './turn/conversation-history.truncator';
 import { ConversationMessageMapper } from './turn/conversation-message.mapper';
@@ -33,7 +32,6 @@ import { TurnRunnerService } from './turn/turn-runner.service';
     AppService,
     AskLogger,
     AskService,
-    ConversationAccessService,
     ConversationHistoryBuilder,
     ConversationHistoryTruncator,
     ConversationMessageMapper,

@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common';
 
 import { ASK_SYSTEM_PROMPT } from '../ask/prompts/system.prompt';
-import { Conversation } from '../conversation/conversation.entity';
-import { ConversationService } from '../conversation/conversation.service';
+import { Conversation } from './conversation.entity';
+import { ConversationService } from './conversation.service';
 
 @Injectable()
 export class ConversationAccessService {
