@@ -14,6 +14,40 @@ The goal is not only to call a model and return text, but to experiment with:
 
 In short, this project is a small NestJS API used to explore how an application can talk to different LLM vendors without coupling business logic to a specific provider.
 
+## 🧭 Spec-Driven Development With Codex
+
+This codebase is being evolved using a spec-driven workflow with Codex. Instead
+of implementing changes from vague prompts alone, each feature or refactor is
+first described in a focused markdown spec under `spec/`, then implemented
+against that document.
+
+Why this works well here:
+
+- it keeps each feature bounded and reviewable
+- it makes architecture decisions explicit before code changes start
+- it gives Codex a concrete contract for behavior, constraints, and non-goals
+- it creates a readable historical trail of how the project evolved
+
+Current specs in the repository:
+
+- `spec/20260417172610_database-and-typeorm.md`: PostgreSQL + TypeORM
+  foundation, data source, migrations, and environment-driven configuration
+- `spec/20260417172610_docker-compose.md`: local Docker development setup with
+  app + PostgreSQL, named volume, and explicit network
+- `spec/20260417175117_conversation-and-message-entities.md`: conversation and
+  message entities, persistence services, and initial migration
+- `spec/20260417175419_multi-turn-conversation.md`: persisted multi-turn flow in
+  `/ask`, using `conversationId` and `x-user-id`
+- `spec/20260417175420_extract-turn-ochestration-engine.md`: refactor from a
+  concentrated `AskService` into a clearer turn orchestration structure
+- `spec/20260417176401_add-new-tool-get-order-items.md`: second tool,
+  `getOrderItems`, plus multi-tool behavior and tests
+- `spec/spec_template.md`: base template used to author new specs consistently
+
+In practice, each spec maps to a feature, refactor, or infrastructure step.
+That makes the `spec/` directory a lightweight product and architecture log for
+the project, not just scratch documentation.
+
 ## ⚙️ Stack
 
 - Node.js
