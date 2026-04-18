@@ -172,6 +172,11 @@ When the model requests a tool, the application executes the internal business
 logic for that tool, persists the tool call and tool result, and sends the
 updated conversation back to the LLM to obtain the final answer.
 
+Current tools:
+
+- `getOrderStatus`: returns the status of an order by `orderId`
+- `getOrderItems`: returns the mocked item list of an order by `orderId`
+
 Single-turn persisted flow:
 
 - user asks for an order status
@@ -185,6 +190,19 @@ Single-turn persisted flow:
 - the LLM generates the final natural-language response
 - the final assistant answer is saved
 
+Single-turn items flow:
+
+- user asks for the items in an order
+- the request includes `x-user-id`
+- the application creates a conversation when `conversationId` is missing
+- the user message is saved in the database
+- the LLM requests the `getOrderItems` tool
+- the assistant tool-call message is saved
+- the application queries the internal order repository
+- the tool result is saved as a tool message
+- the LLM generates the final natural-language response using the tool output
+- the final assistant answer is saved
+
 Multi-turn persisted flow:
 
 - the first request creates a conversation and returns its `conversationId`
@@ -192,6 +210,9 @@ Multi-turn persisted flow:
 - the application loads the stored message history for that conversation
 - the LLM receives the system prompt plus the persisted history in stable order
 - any new assistant/tool messages generated in the second turn are also saved
+- the latest user message is evaluated against the full persisted context, so a
+  conversation can move from status lookup to item lookup without losing
+  continuity
 
 ## 📬 API Example
 
@@ -218,6 +239,32 @@ Success response:
   "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
   "type": "final_answer",
   "content": "Your order 789 has been **DELIVERED**! Your order has successfully reached you."
+}
+```
+
+Single-turn items request:
+
+Headers:
+
+```text
+x-user-id: user-1
+```
+
+Body:
+
+```json
+{
+  "message": "I want to know the items of my order 123"
+}
+```
+
+Success response:
+
+```json
+{
+  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
+  "type": "final_answer",
+  "content": "Your order 123 contains the following items:\n- Keyboard\n- Mouse"
 }
 ```
 
@@ -271,6 +318,45 @@ Example follow-up response:
   "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
   "type": "final_answer",
   "content": "Your order #123 has a status of **PAID**."
+}
+```
+
+Multi-turn capability switch example:
+
+First request:
+
+```json
+{
+  "message": "I want to know the status of my order 123"
+}
+```
+
+First response:
+
+```json
+{
+  "conversationId": "341a2682-d929-4d7f-9e03-33a6470d2369",
+  "type": "final_answer",
+  "content": "Your order #123 status is: **PAID**"
+}
+```
+
+Follow-up request using the same conversation:
+
+```json
+{
+  "conversationId": "341a2682-d929-4d7f-9e03-33a6470d2369",
+  "message": "I want to know the items of my order 123"
+}
+```
+
+Follow-up response:
+
+```json
+{
+  "conversationId": "341a2682-d929-4d7f-9e03-33a6470d2369",
+  "type": "final_answer",
+  "content": "Your order 123 contains the following items:\n- Keyboard\n- Mouse"
 }
 ```
 
@@ -405,20 +491,20 @@ ASCII view of the current flow starting at `POST /ask`:
                             +--------------------------+
 ```
 
-## 🪵 Logs Example
+## 🪵 Logs Examples
 
-Below is a sanitized example of the runtime logs produced during the `/ask` flow.
+Below are sanitized examples of the runtime logs produced during `/ask`.
 
 ```text
 [Nest] LOG   [AskLogger] Calling LLM for initial ask flow
-[Nest] DEBUG [AskLogger] initial messages: [{"role":"system","contentPreview":"You are a study assistant for experiments with LLM providers."},{"role":"user","contentPreview":"I want to know the status of my order ***"}]
+[Nest] DEBUG [AskLogger] initial messages: [{"role":"system","contentPreview":"You are an assistant for order support experiments.\nYou can answer directly or call a tool when backend data is required..."},{"role":"user","contentPreview":"I want to know the status of my order ***"}]
 
 [Nest] LOG   [AnthropicLogger] Sending request to Anthropic
-[Nest] DEBUG [AnthropicLogger] Messages: [{"role":"system","contentPreview":"You are a study assistant for experiments with LLM providers."},{"role":"user","contentPreview":"I want to know the status of my order ***"}]
-[Nest] DEBUG [AnthropicLogger] Tools: [{"name":"getOrderStatus","description":"Returns the status of an order by its ID."}]
-[Nest] DEBUG [AnthropicLogger] System message: "You are a study assistant for experiments with LLM providers."
+[Nest] DEBUG [AnthropicLogger] Messages: [{"role":"system","contentPreview":"You are an assistant for order support experiments.\nYou can answer directly or call a tool when backend data is required..."},{"role":"user","contentPreview":"I want to know the status of my order ***"}]
+[Nest] DEBUG [AnthropicLogger] Tools: [{"name":"getOrderStatus","description":"Returns the status of an order by its ID."},{"name":"getOrderItems","description":"Returns the items contained in an order by its ID."}]
+[Nest] DEBUG [AnthropicLogger] System message: "You are an assistant for order support experiments.\nYou can answer directly or call a tool when backend data is required..."
 [Nest] DEBUG [AnthropicLogger] Mapped messages: [{"role":"user","content":"I want to know the status of my order ***"}]
-[Nest] DEBUG [AnthropicLogger] Tool count: 1
+[Nest] DEBUG [AnthropicLogger] Tool count: 2
 [Nest] LOG   [AnthropicLogger] Anthropic responded with stop reason tool_use
 [Nest] DEBUG [AnthropicLogger] Raw response summary: {"id":"msg_xxx","model":"claude-haiku-4-5","stopReason":"tool_use","contentTypes":["tool_use"]}
 [Nest] DEBUG [AnthropicLogger] Tool use block: {"type":"tool_use","id":"toolu_xxx","name":"getOrderStatus","input":{"orderId":"***"}}
@@ -437,12 +523,37 @@ Below is a sanitized example of the runtime logs produced during the `/ask` flow
 [Nest] LOG   [AskLogger] Received final_answer from LLM during follow-up ask flow
 ```
 
+Items lookup example:
+
+```text
+[Nest] LOG   [AskLogger] Calling LLM for initial ask flow
+[Nest] DEBUG [AskLogger] initial messages: [{"role":"system","contentPreview":"You are an assistant for order support experiments.\nYou can answer directly or call a tool when backend data is required..."},{"role":"user","contentPreview":"I want to know the items of my order ***"}]
+
+[Nest] LOG   [AnthropicLogger] Sending request to Anthropic
+[Nest] DEBUG [AnthropicLogger] Tools: [{"name":"getOrderStatus","description":"Returns the status of an order by its ID."},{"name":"getOrderItems","description":"Returns the items contained in an order by its ID."}]
+[Nest] DEBUG [AnthropicLogger] Tool count: 2
+[Nest] LOG   [AnthropicLogger] Anthropic responded with stop reason tool_use
+[Nest] DEBUG [AnthropicLogger] Tool use block: {"type":"tool_use","id":"toolu_xxx","name":"getOrderItems","input":{"orderId":"***"}}
+[Nest] LOG   [AnthropicLogger] Anthropic requested tool getOrderItems
+
+[Nest] LOG   [AskLogger] Received tool_call from LLM during initial ask flow
+[Nest] LOG   [AskLogger] Executing tool getOrderItems for order *23
+[Nest] DEBUG [AskLogger] Tool result: {"orderId":"***","found":true,"items":["Keyboard","Mouse"]}
+[Nest] LOG   [AskLogger] Calling LLM for follow-up ask flow
+
+[Nest] LOG   [AnthropicLogger] Sending request to Anthropic
+[Nest] DEBUG [AnthropicLogger] Mapped messages: [{"role":"user","content":"I want to know the items of my order ***"},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_xxx","name":"getOrderItems","input":{"orderId":"***"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_xxx","content":"{\"orderId\":\"***\",\"found\":true,\"items\":[\"Keyboard\",\"Mouse\"]}"}]}]
+[Nest] LOG   [AnthropicLogger] Anthropic responded with stop reason end_turn
+[Nest] LOG   [AnthropicLogger] Anthropic returned a final answer
+```
+
 These logs are useful for understanding:
 
 - what was sent to the provider
 - when the model requested a tool
 - what business result was returned by the application
 - when the final answer came back
+- whether the runtime actually exposed the expected set of tools to the model
 
 ## 🧩 Runtime Version Alignment
 
@@ -455,6 +566,7 @@ This repository also includes:
 These files keep local development and CI aligned on the expected Node.js and npm versions.
 
 ## 🚀 Next Steps
+
 - [x] add multi-turn conversation
-- [ ] add one more tool, for example `getOrderItems`, to explore multi-tool scenarios
+- [x] add one more tool, `getOrderItems`, to explore multi-tool scenarios
 - [ ] modify the LLM behavior by testing different system messages and comparing how the model reacts to the same user request
