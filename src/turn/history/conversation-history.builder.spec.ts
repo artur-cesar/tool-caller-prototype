@@ -1,6 +1,6 @@
-import { LlmMessage } from '../llm/types/llm.types';
-import { MessageService } from '../message/message.service';
-import { MessageRole } from '../message/message-role.enum';
+import { LlmMessage } from '../../llm/types/llm.types';
+import { MessageService } from '../../message/message.service';
+import { MessageRole } from '../../message/message-role.enum';
 import { ConversationHistoryBuilder } from './conversation-history.builder';
 import { ConversationHistoryTruncator } from './conversation-history.truncator';
 import { ConversationMessageMapper } from './conversation-message.mapper';

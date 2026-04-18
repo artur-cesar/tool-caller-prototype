@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
+import { ConversationAccessService } from '../conversation/conversation-access.service';
 import { MessageService } from '../message/message.service';
-import { ConversationAccessService } from '../turn/conversation-access.service';
 import { TurnRunnerService } from '../turn/turn-runner.service';
 import { AskResponse } from './ask.types';
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { LlmMessage } from '../llm/types/llm.types';
+import { LlmMessage } from '../../llm/types/llm.types';
 
 @Injectable()
 export class ConversationHistoryTruncator {

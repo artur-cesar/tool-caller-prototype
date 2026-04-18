@@ -8,7 +8,7 @@ import { LLM_GATEWAY } from '../llm/types/llm.gateway';
 import { MessageService } from '../message/message.service';
 import { ToolExecutorService } from '../tools/tool-executor.service';
 import { tools } from '../tools/tools-definition';
-import { ConversationHistoryBuilder } from './conversation-history.builder';
+import { ConversationHistoryBuilder } from './history/conversation-history.builder';
 
 @Injectable()
 export class TurnRunnerService {
