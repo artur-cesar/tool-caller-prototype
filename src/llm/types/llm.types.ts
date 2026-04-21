@@ -11,6 +11,7 @@ export type LlmMessage = {
 export type LlmGenerateInput = {
   messages: LlmMessage[];
   tools?: ToolDefinition[];
+  providerApiKey: string;
 };
 
 export type LlmToolCallResponse = {

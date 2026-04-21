@@ -10,23 +10,26 @@ import { mapAnthropicMessage, resolveModel } from './utils.mapper';
 
 @Injectable()
 export class AnthropicLlmGateway implements LlmGateway {
-  private readonly client: Anthropic;
   private readonly model: AnthropicModel;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly logger: AnthropicLogger,
   ) {
-    this.client = new Anthropic({
-      apiKey: this.configService.getOrThrow<string>('ANTHROPIC_API_KEY'),
-    });
     this.model = resolveModel(
       this.configService.get<string>('ANTHROPIC_MODEL'),
     );
   }
 
-  async generate({ messages, tools }: LlmGenerateInput): Promise<LlmResponse> {
+  async generate({
+    messages,
+    tools,
+    providerApiKey,
+  }: LlmGenerateInput): Promise<LlmResponse> {
     this.logger.outboundRequest(messages, tools);
+    const client = new Anthropic({
+      apiKey: providerApiKey,
+    });
 
     const systemMessage = messages.find((m) => m.role === 'system')?.content;
 
@@ -38,7 +41,7 @@ export class AnthropicLlmGateway implements LlmGateway {
 
     this.logger.mappedRequest(systemMessage, mappedMessages, tools);
 
-    const response = await this.client.messages.create({
+    const response = await client.messages.create({
       model: this.model,
       max_tokens: 512,
       system: systemMessage,

@@ -19,6 +19,7 @@ export class FakeLlmGateway implements LlmGateway {
   async generate(input: {
     messages: LlmMessage[];
     tools?: ToolDefinition[];
+    providerApiKey?: string;
   }): Promise<LlmResponse> {
     this.logger.log('Processing fake LLM request');
     this.debug('Messages', summarizeMessages(input.messages));
