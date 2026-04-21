@@ -23,6 +23,7 @@ export class TurnRunnerService {
   async run(
     conversation: Conversation,
     systemPrompt = conversation.systemPrompt,
+    providerApiKey = '',
   ): Promise<AskResponse> {
     const messages = await this.historyBuilder.build(
       conversation,
@@ -34,6 +35,7 @@ export class TurnRunnerService {
     const llmResponse = await this.llmGateway.generate({
       messages,
       tools,
+      providerApiKey,
     });
 
     this.logger.llmResponse('initial', llmResponse);
@@ -101,6 +103,7 @@ export class TurnRunnerService {
     const finalResponse = await this.llmGateway.generate({
       messages: followUpMessages,
       tools,
+      providerApiKey,
     });
 
     this.logger.llmResponse('follow-up', finalResponse);

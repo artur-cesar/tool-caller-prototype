@@ -9,8 +9,11 @@ import { AskLogger } from './ask/ask.logger';
 import { AskService } from './ask/ask.service';
 import { ConversationModule } from './conversation/conversation.module';
 import { DatabaseModule } from './database/database.module';
+import { HealthController } from './health/health.controller';
+import { HealthService } from './health/health.service';
 import { AnthropicLogger } from './llm/gateways/anthropic/anthropic.logger';
 import { AnthropicLlmGateway } from './llm/gateways/anthropic/anthropic-llm.gateway';
+import { ProviderApiKeyService } from './llm/provider-api-key.service';
 import { LLM_GATEWAY } from './llm/types/llm.gateway';
 import { MessageModule } from './message/message.module';
 import { OrderRepository } from './order/order.repository';
@@ -27,9 +30,11 @@ import { TurnRunnerService } from './turn/turn-runner.service';
     ConversationModule,
     MessageModule,
   ],
-  controllers: [AppController, AskController],
+  controllers: [AppController, AskController, HealthController],
   providers: [
     AppService,
+    HealthService,
+    ProviderApiKeyService,
     AskLogger,
     AskService,
     ConversationHistoryBuilder,

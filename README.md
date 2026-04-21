@@ -61,6 +61,7 @@ the project, not just scratch documentation.
 - Anthropic SDK
 - PostgreSQL
 - TypeORM
+- Swagger/OpenAPI
 
 ## ▶️ How To Run
 
@@ -80,6 +81,7 @@ npm run start:container
 # migrations
 npm run migration:run
 ```
+
 Run unit tests:
 
 ```bash
@@ -89,6 +91,20 @@ npm run test:e2e
 
 The migration scripts use `src/database/data-source.ts`, so future entities can
 be added without refactoring the CLI setup.
+
+## 🌐 Docs (OpenAPI + Swagger):
+
+Swagger UI is available after startup at:
+
+```text
+http://localhost:3000/docs
+```
+
+The generated OpenAPI JSON is available at:
+
+```text
+http://localhost:3000/docs-json
+```
 
 ## 🧠 What The Code Does
 
@@ -181,13 +197,44 @@ Endpoint:
 
 ```text
 POST /ask
+GET /health
 ```
+
+Interactive documentation:
+
+```text
+GET /docs
+GET /docs-json
+```
+
+Swagger/OpenAPI documents the request schema, response schema, `x-user-id`
+header, supported ask modes, and possible validation, authorization, not found,
+and internal error responses for the `/ask` endpoint. It also documents the
+health check endpoint used by container probes and monitoring.
+
+Swagger UI also exposes an optional provider API key input through the
+Authorize flow. Use `x-provider-api-key` there when you want a request from the
+browser to use your own provider key. If the header is omitted, the server falls
+back to `ANTHROPIC_API_KEY` from the environment. If neither source is
+available, `/ask` returns a clear `401` error before calling the provider.
+
+Health check:
+
+```text
+GET /health
+```
+
+The health response includes the overall status, timestamp, process uptime,
+application version, and checks for the application process and database. It
+returns `200` when required checks are healthy and `503` when a required
+dependency is down.
 
 Headers:
 
-| Header      | Required | Description                                                                                                                                   |
-| ----------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `x-user-id` | Yes      | Application-level user identifier used to track conversation ownership and ensure a user can only continue conversations that belong to them. |
+| Header               | Required | Description                                                                                                                                                    |
+| -------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `x-user-id`          | Yes      | Application-level user identifier used to track conversation ownership and ensure a user can only continue conversations that belong to them.                  |
+| `x-provider-api-key` | No       | Provider API key for this request. When present, it overrides `ANTHROPIC_API_KEY`; when omitted, the application uses `ANTHROPIC_API_KEY` from the environment. |
 
 Request body:
 
@@ -208,6 +255,8 @@ Response body:
 Validation notes:
 
 - invalid or missing `x-user-id` returns a validation error
+- missing provider API key from both `x-provider-api-key` and
+  `ANTHROPIC_API_KEY` returns a `401` error before the provider is called
 - invalid `conversationId` values are rejected
 - invalid `mode` values are rejected
 - raw system prompt text is never accepted through the public API

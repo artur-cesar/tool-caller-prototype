@@ -1,4 +1,5 @@
 import { ConversationAccessService } from '../conversation/conversation-access.service';
+import { ProviderApiKeyService } from '../llm/provider-api-key.service';
 import { MessageService } from '../message/message.service';
 import { TurnRunnerService } from '../turn/turn-runner.service';
 import { AskService } from './ask.service';
@@ -13,6 +14,7 @@ describe('AskService', () => {
   let conversationAccessService: jest.Mocked<ConversationAccessService>;
   let messageService: jest.Mocked<MessageService>;
   let turnRunnerService: jest.Mocked<TurnRunnerService>;
+  let providerApiKeyService: jest.Mocked<ProviderApiKeyService>;
 
   beforeEach(() => {
     conversationAccessService = {
@@ -27,10 +29,15 @@ describe('AskService', () => {
       run: jest.fn(),
     } as unknown as jest.Mocked<TurnRunnerService>;
 
+    providerApiKeyService = {
+      resolve: jest.fn().mockReturnValue('resolved-provider-api-key'),
+    } as unknown as jest.Mocked<ProviderApiKeyService>;
+
     service = new AskService(
       conversationAccessService,
       messageService,
       turnRunnerService,
+      providerApiKeyService,
     );
   });
 
@@ -49,8 +56,12 @@ describe('AskService', () => {
     const result = await service.handle({
       userId: 'user-1',
       message: 'hello',
+      providerApiKey: 'request-provider-api-key',
     });
 
+    expect(providerApiKeyService.resolve).toHaveBeenCalledWith(
+      'request-provider-api-key',
+    );
     expect(conversationAccessService.findOrCreate).toHaveBeenCalledWith(
       'user-1',
       undefined,
@@ -67,6 +78,7 @@ describe('AskService', () => {
         systemPrompt: 'stored system prompt',
       },
       ORDER_FULL_SYSTEM_PROMPT,
+      'resolved-provider-api-key',
     );
     expect(result).toEqual({
       conversationId: 'conversation-1',
@@ -103,6 +115,24 @@ describe('AskService', () => {
         id: 'conversation-1',
       }),
       ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+      'resolved-provider-api-key',
     );
+  });
+
+  it('should fail before persistence when provider api key cannot be resolved', async () => {
+    providerApiKeyService.resolve.mockImplementation(() => {
+      throw new Error('Provider API key is required.');
+    });
+
+    await expect(
+      service.handle({
+        userId: 'user-1',
+        message: 'What is the status of order 123?',
+      }),
+    ).rejects.toThrow('Provider API key is required.');
+
+    expect(conversationAccessService.findOrCreate).not.toHaveBeenCalled();
+    expect(messageService.createUserMessage).not.toHaveBeenCalled();
+    expect(turnRunnerService.run).not.toHaveBeenCalled();
   });
 });

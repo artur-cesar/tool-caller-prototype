@@ -4,16 +4,15 @@ import { ConfigService } from '@nestjs/config';
 import { AnthropicLogger } from './anthropic.logger';
 import { AnthropicLlmGateway } from './anthropic-llm.gateway';
 
+const mockAnthropicCreate = jest.fn();
 const anthropicConstructorMock = Anthropic as unknown as jest.Mock;
 
 jest.mock('@anthropic-ai/sdk', () => {
-  const create = jest.fn();
-
   return {
     __esModule: true,
     default: jest.fn().mockImplementation(() => ({
       messages: {
-        create,
+        create: mockAnthropicCreate,
       },
     })),
   };
@@ -23,7 +22,6 @@ describe('AnthropicLlmGateway', () => {
   let gateway: AnthropicLlmGateway;
   let configService: jest.Mocked<ConfigService>;
   let anthropicLogger: jest.Mocked<AnthropicLogger>;
-  let createMock: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -59,18 +57,14 @@ describe('AnthropicLlmGateway', () => {
     } as unknown as jest.Mocked<AnthropicLogger>;
 
     gateway = new AnthropicLlmGateway(configService, anthropicLogger);
-    createMock = anthropicConstructorMock.mock.results[0].value.messages
-      .create as jest.Mock;
   });
 
-  it('should create the Anthropic client with the configured api key', () => {
-    expect(anthropicConstructorMock).toHaveBeenCalledWith({
-      apiKey: 'test-api-key',
-    });
+  it('should not require the Anthropic api key during construction', () => {
+    expect(anthropicConstructorMock).not.toHaveBeenCalled();
   });
 
   it('should return a tool call response when Anthropic requests a tool', async () => {
-    createMock.mockResolvedValue({
+    mockAnthropicCreate.mockResolvedValue({
       id: 'msg_123',
       model: 'claude-sonnet-4-6',
       stop_reason: 'tool_use',
@@ -91,6 +85,7 @@ describe('AnthropicLlmGateway', () => {
     });
 
     const result = await gateway.generate({
+      providerApiKey: 'request-api-key',
       messages: [
         {
           role: 'system',
@@ -116,7 +111,10 @@ describe('AnthropicLlmGateway', () => {
       ],
     });
 
-    expect(createMock).toHaveBeenCalledWith({
+    expect(anthropicConstructorMock).toHaveBeenCalledWith({
+      apiKey: 'request-api-key',
+    });
+    expect(mockAnthropicCreate).toHaveBeenCalledWith({
       model: 'claude-sonnet-4-6',
       max_tokens: 512,
       system: 'System prompt',
@@ -153,7 +151,7 @@ describe('AnthropicLlmGateway', () => {
   });
 
   it('should return a final answer when Anthropic returns text only', async () => {
-    createMock.mockResolvedValue({
+    mockAnthropicCreate.mockResolvedValue({
       id: 'msg_456',
       model: 'claude-sonnet-4-6',
       stop_reason: 'end_turn',
@@ -166,6 +164,7 @@ describe('AnthropicLlmGateway', () => {
     });
 
     const result = await gateway.generate({
+      providerApiKey: 'request-api-key',
       messages: [
         {
           role: 'user',
@@ -181,7 +180,7 @@ describe('AnthropicLlmGateway', () => {
   });
 
   it('should map assistant tool-use and tool-result messages in the follow-up request', async () => {
-    createMock.mockResolvedValue({
+    mockAnthropicCreate.mockResolvedValue({
       id: 'msg_789',
       model: 'claude-sonnet-4-6',
       stop_reason: 'end_turn',
@@ -194,6 +193,7 @@ describe('AnthropicLlmGateway', () => {
     });
 
     await gateway.generate({
+      providerApiKey: 'request-api-key',
       messages: [
         {
           role: 'system',
@@ -234,7 +234,7 @@ describe('AnthropicLlmGateway', () => {
       ],
     });
 
-    expect(createMock).toHaveBeenCalledWith(
+    expect(mockAnthropicCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         messages: [
           {
@@ -287,10 +287,7 @@ describe('AnthropicLlmGateway', () => {
     });
 
     gateway = new AnthropicLlmGateway(configService, anthropicLogger);
-    createMock = anthropicConstructorMock.mock.results.at(-1)?.value.messages
-      .create as jest.Mock;
-
-    createMock.mockResolvedValue({
+    mockAnthropicCreate.mockResolvedValue({
       id: 'msg_999',
       model: 'claude-haiku-4-5',
       stop_reason: 'end_turn',
@@ -303,6 +300,7 @@ describe('AnthropicLlmGateway', () => {
     });
 
     await gateway.generate({
+      providerApiKey: 'request-api-key',
       messages: [
         {
           role: 'user',
@@ -311,7 +309,7 @@ describe('AnthropicLlmGateway', () => {
       ],
     });
 
-    expect(createMock).toHaveBeenCalledWith(
+    expect(mockAnthropicCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'claude-haiku-4-5',
       }),

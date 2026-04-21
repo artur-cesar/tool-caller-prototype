@@ -40,6 +40,7 @@ describe('AskController', () => {
         mode: AskMode.ORDER_STATUS_ONLY,
       },
       'user-1',
+      'request-provider-api-key',
     );
 
     expect(askService.handle).toHaveBeenCalledWith(
@@ -48,6 +49,7 @@ describe('AskController', () => {
         message: 'What is the status of order 123?',
         conversationId: 'conversation-1',
         mode: AskMode.ORDER_STATUS_ONLY,
+        providerApiKey: 'request-provider-api-key',
       }),
     );
     expect(result).toEqual({

@@ -5,6 +5,7 @@ export interface LlmGateway {
   generate(input: {
     messages: LlmMessage[];
     tools?: ToolDefinition[];
+    providerApiKey: string;
   }): Promise<LlmResponse>;
 }
 
