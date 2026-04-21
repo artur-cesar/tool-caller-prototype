@@ -6,6 +6,6 @@ coverage
 .env
 .env.*
 npm-debug.log*
-docker-compose*.yml
+compose*.yaml
 README.md
 spec
