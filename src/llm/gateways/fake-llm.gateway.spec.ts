@@ -1,5 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 
+import {
+  ORDER_FULL_SYSTEM_PROMPT,
+  ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+} from '../../ask/prompts/system.prompt';
 import { FakeLlmGateway } from './fake-llm.gateway';
 
 describe('FakeLlmGateway', () => {
@@ -53,6 +57,119 @@ describe('FakeLlmGateway', () => {
       arguments: {
         orderId: '123',
       },
+    });
+  });
+
+  it('should default to full mode behavior when the system prompt is omitted', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'user',
+          content: 'I want to know the items of my order 123',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'tool_call',
+      content: "I'll check the order items for you.",
+      toolName: 'getOrderItems',
+      toolUseId: 'fake-tool-use-id',
+      arguments: {
+        orderId: '123',
+      },
+    });
+  });
+
+  it('should refuse item questions in status-only mode without calling getOrderItems', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'system',
+          content: ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: 'I want to know the items of my order 123',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'final_answer',
+      content:
+        'I can only help with order status in this mode. I do not have the necessary capability to answer order item requests.',
+    });
+  });
+
+  it('should use getOrderStatus for status questions in status-only mode', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'system',
+          content: ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: 'I want to know the status of my order 123',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'tool_call',
+      content: "I'll check the order status for you.",
+      toolName: 'getOrderStatus',
+      toolUseId: 'fake-tool-use-id',
+      arguments: {
+        orderId: '123',
+      },
+    });
+  });
+
+  it('should use getOrderItems for item questions in full mode', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'system',
+          content: ORDER_FULL_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: 'I want to know the items of my order 123',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'tool_call',
+      content: "I'll check the order items for you.",
+      toolName: 'getOrderItems',
+      toolUseId: 'fake-tool-use-id',
+      arguments: {
+        orderId: '123',
+      },
+    });
+  });
+
+  it('should keep composite order requests unsupported', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'system',
+          content: ORDER_FULL_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: 'What is the status and items of order 123?',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'final_answer',
+      content:
+        'This prototype handles one backend tool action at a time. Please ask for either order status or order items.',
     });
   });
 
@@ -144,6 +261,68 @@ describe('FakeLlmGateway', () => {
         {
           role: 'user',
           content: 'order 123',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'tool_call',
+      content: "I'll check the order items for you.",
+      toolName: 'getOrderItems',
+      toolUseId: 'fake-tool-use-id',
+      arguments: {
+        orderId: '123',
+      },
+    });
+  });
+
+  it('should refuse a multi-turn item question in status-only mode when the order id is in prior context', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'system',
+          content: ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: 'What is the status of order 123?',
+        },
+        {
+          role: 'assistant',
+          content: 'Order 123 status: PAID.',
+        },
+        {
+          role: 'user',
+          content: 'What are the items of this order?',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      type: 'final_answer',
+      content:
+        'I can only help with order status in this mode. I do not have the necessary capability to answer order item requests.',
+    });
+  });
+
+  it('should answer a multi-turn item question in full mode when the order id is in prior context', async () => {
+    const result = await gateway.generate({
+      messages: [
+        {
+          role: 'system',
+          content: ORDER_FULL_SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: 'What is the status of order 123?',
+        },
+        {
+          role: 'assistant',
+          content: 'Order 123 status: PAID.',
+        },
+        {
+          role: 'user',
+          content: 'What are the items of this order?',
         },
       ],
     });

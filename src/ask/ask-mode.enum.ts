@@ -1,0 +1,4 @@
+export enum AskMode {
+  ORDER_STATUS_ONLY = 'ORDER_STATUS_ONLY',
+  ORDER_FULL = 'ORDER_FULL',
+}

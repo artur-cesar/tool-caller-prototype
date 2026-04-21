@@ -42,6 +42,8 @@ Current specs in the repository:
   concentrated `AskService` into a clearer turn orchestration structure
 - `spec/20260417176401_add-new-tool-get-order-items.md`: second tool,
   `getOrderItems`, plus multi-tool behavior and tests
+- `spec/20260421174761_enable-system-modes.md`: final system prompt experiment
+  with ask modes that alter model behavior while keeping the same runtime tools
 - `spec/spec_template.md`: base template used to author new specs consistently
 
 In practice, each spec maps to a feature, refactor, or infrastructure step.
@@ -211,6 +213,27 @@ Current tools:
 - `getOrderStatus`: returns the status of an order by `orderId`
 - `getOrderItems`: returns the mocked item list of an order by `orderId`
 
+Supported ask modes:
+
+- `ORDER_FULL`: default mode. The system prompt allows status questions through
+  `getOrderStatus` and item questions through `getOrderItems`.
+- `ORDER_STATUS_ONLY`: constrained mode. The same runtime tool list is still
+  sent to the LLM, but the system prompt explicitly allows only
+  `getOrderStatus` and requires item-related requests to be refused.
+
+This is the final controlled experiment in the repository: it demonstrates that
+system messages can change LLM tool-calling behavior without changing backend
+tool registration. In both modes, the application exposes the same tools to the
+model. The behavioral difference comes from the internally selected system
+prompt.
+
+Known limitation:
+
+- the prototype intentionally handles only one backend tool action per `/ask`
+  execution
+- composite requests such as "What is the status and items of order 123?" remain
+  unsupported, and the assistant should ask the user to choose one request
+
 Single-turn persisted flow:
 
 - user asks for an order status
@@ -262,7 +285,8 @@ Body:
 
 ```json
 {
-  "message": "I want to know the status of my order 789"
+  "message": "I want to know the status of my order 789",
+  "mode": "ORDER_FULL"
 }
 ```
 
@@ -288,7 +312,8 @@ Body:
 
 ```json
 {
-  "message": "I want to know the items of my order 123"
+  "message": "I want to know the items of my order 123",
+  "mode": "ORDER_FULL"
 }
 ```
 
@@ -314,7 +339,8 @@ Body:
 
 ```json
 {
-  "message": "What is the status of my order?"
+  "message": "What is the status of my order?",
+  "mode": "ORDER_STATUS_ONLY"
 }
 ```
 
@@ -341,7 +367,28 @@ Body:
 ```json
 {
   "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
-  "message": "order 123"
+  "message": "order 123",
+  "mode": "ORDER_STATUS_ONLY"
+}
+```
+
+Status-only item request example:
+
+```json
+{
+  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
+  "message": "What are the items of this order?",
+  "mode": "ORDER_STATUS_ONLY"
+}
+```
+
+Expected behavior:
+
+```json
+{
+  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
+  "type": "final_answer",
+  "content": "The assistant explains that this mode only supports order status."
 }
 ```
 
@@ -603,4 +650,8 @@ These files keep local development and CI aligned on the expected Node.js and np
 
 - [x] add multi-turn conversation
 - [x] add one more tool, `getOrderItems`, to explore multi-tool scenarios
-- [ ] modify the LLM behavior by testing different system messages and comparing how the model reacts to the same user request
+- [x] modify the LLM behavior by testing different system messages and comparing how the model reacts to the same user request
+
+This repository is part of a broader LLM study series focused on backend
+integration patterns, provider boundaries, persistence, tool calling, and prompt
+constraints.

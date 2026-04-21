@@ -2,6 +2,11 @@ import { ConversationAccessService } from '../conversation/conversation-access.s
 import { MessageService } from '../message/message.service';
 import { TurnRunnerService } from '../turn/turn-runner.service';
 import { AskService } from './ask.service';
+import { AskMode } from './ask-mode.enum';
+import {
+  ORDER_FULL_SYSTEM_PROMPT,
+  ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+} from './prompts/system.prompt';
 
 describe('AskService', () => {
   let service: AskService;
@@ -49,20 +54,55 @@ describe('AskService', () => {
     expect(conversationAccessService.findOrCreate).toHaveBeenCalledWith(
       'user-1',
       undefined,
+      ORDER_FULL_SYSTEM_PROMPT,
     );
     expect(messageService.createUserMessage).toHaveBeenCalledWith(
       'conversation-1',
       'hello',
     );
-    expect(turnRunnerService.run).toHaveBeenCalledWith({
-      id: 'conversation-1',
-      userId: 'user-1',
-      systemPrompt: 'stored system prompt',
-    });
+    expect(turnRunnerService.run).toHaveBeenCalledWith(
+      {
+        id: 'conversation-1',
+        userId: 'user-1',
+        systemPrompt: 'stored system prompt',
+      },
+      ORDER_FULL_SYSTEM_PROMPT,
+    );
     expect(result).toEqual({
       conversationId: 'conversation-1',
       type: 'final_answer',
       content: 'Direct answer',
     });
+  });
+
+  it('should resolve the status-only system prompt from the selected mode', async () => {
+    conversationAccessService.findOrCreate.mockResolvedValue({
+      id: 'conversation-1',
+      userId: 'user-1',
+      systemPrompt: ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+    } as never);
+    turnRunnerService.run.mockResolvedValue({
+      conversationId: 'conversation-1',
+      type: 'final_answer',
+      content: 'Direct answer',
+    });
+
+    await service.handle({
+      userId: 'user-1',
+      message: 'What is the status of order 123?',
+      mode: AskMode.ORDER_STATUS_ONLY,
+    });
+
+    expect(conversationAccessService.findOrCreate).toHaveBeenCalledWith(
+      'user-1',
+      undefined,
+      ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+    );
+    expect(turnRunnerService.run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'conversation-1',
+      }),
+      ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+    );
   });
 });

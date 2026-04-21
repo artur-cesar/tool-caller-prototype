@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { ASK_SYSTEM_PROMPT } from '../ask/prompts/system.prompt';
+import { ORDER_FULL_SYSTEM_PROMPT } from '../ask/prompts/system.prompt';
 import { Conversation } from './conversation.entity';
 import { ConversationService } from './conversation.service';
 
@@ -15,9 +15,10 @@ export class ConversationAccessService {
   async findOrCreate(
     userId: string,
     conversationId?: string,
+    systemPrompt = ORDER_FULL_SYSTEM_PROMPT,
   ): Promise<Conversation> {
     if (!conversationId) {
-      return this.conversationService.create(userId, ASK_SYSTEM_PROMPT);
+      return this.conversationService.create(userId, systemPrompt);
     }
 
     const conversation =
