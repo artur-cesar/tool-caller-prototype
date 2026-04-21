@@ -30,19 +30,19 @@ Why this works well here:
 
 Current specs in the repository:
 
-- `spec/20260417172610_database-and-typeorm.md`: PostgreSQL + TypeORM
+- `database-and-typeorm.md`: PostgreSQL + TypeORM
   foundation, data source, migrations, and environment-driven configuration
-- `spec/20260417172610_docker-compose.md`: local Docker development setup with
+- `docker-compose.md`: local Docker development setup with
   app + PostgreSQL, named volume, and explicit network
-- `spec/20260417175117_conversation-and-message-entities.md`: conversation and
+- `conversation-and-message-entities.md`: conversation and
   message entities, persistence services, and initial migration
-- `spec/20260417175419_multi-turn-conversation.md`: persisted multi-turn flow in
+- `multi-turn-conversation.md`: persisted multi-turn flow in
   `/ask`, using `conversationId` and `x-user-id`
-- `spec/20260417175420_extract-turn-ochestration-engine.md`: refactor from a
+- `extract-turn-ochestration-engine.md`: refactor from a
   concentrated `AskService` into a clearer turn orchestration structure
-- `spec/20260417176401_add-new-tool-get-order-items.md`: second tool,
+- `add-new-tool-get-order-items.md`: second tool,
   `getOrderItems`, plus multi-tool behavior and tests
-- `spec/20260421174761_enable-system-modes.md`: final system prompt experiment
+- `enable-system-modes.md`: final system prompt experiment
   with ask modes that alter model behavior while keeping the same runtime tools
 - `spec/spec_template.md`: base template used to author new specs consistently
 
@@ -64,127 +64,31 @@ the project, not just scratch documentation.
 
 ## ▶️ How To Run
 
-Install dependencies:
+**Note**: This project defines the required Node.js version in package.json (via engines) for use with `NVM`.
+Before running any commands, make sure to run `nvm use` to align your local environment with the project's Node and npm versions.
 
 ```bash
+# install dependencies
 npm install
-```
 
-Run in development:
-
-```bash
+# run with npm
 npm run start:dev
+
+# Or run with docker compose (application + database)
+npm run start:container
+
+# migrations
+npm run migration:run
 ```
-
-Run with Docker Compose:
-
-```bash
-docker compose up --build
-```
-
-Environment:
-
-```bash
-cp .env.example .env
-```
-
 Run unit tests:
 
 ```bash
 npm test
-```
-
-Run e2e tests:
-
-```bash
 npm run test:e2e
-```
-
-Build:
-
-```bash
-npm run build
-```
-
-## 🗄️ Database Foundation
-
-The project now includes a minimal PostgreSQL + TypeORM foundation for future
-conversation persistence.
-
-Files:
-
-- `src/database/database.module.ts`: reusable Nest module that wires the TypeORM
-  connection into the application.
-- `src/database/typeorm.config.ts`: shared TypeORM option builder used by both
-  Nest runtime startup and the CLI data source.
-- `src/database/data-source.ts`: singleton `DataSource` instance required by the
-  TypeORM CLI for migrations.
-- `src/database/migrations/`: migration directory for schema changes.
-
-Required database environment variables:
-
-- `DB_HOST`
-- `DB_PORT`
-- `DB_USERNAME`
-- `DB_PASSWORD`
-- `DB_DATABASE`
-
-Optional:
-
-- `DATABASE_ENABLED=false` disables the TypeORM connection. The test suite uses
-  `NODE_ENV=test`, so the database module stays off unless explicitly enabled.
-
-Migration commands:
-
-```bash
-npm run migration:create --name=CreateConversationTables
-npm run migration:generate --name=CreateConversationTables
-npm run migration:run
-npm run migration:revert
 ```
 
 The migration scripts use `src/database/data-source.ts`, so future entities can
 be added without refactoring the CLI setup.
-
-## 🐳 Docker Setup
-
-The project now includes a minimal local Docker setup with one NestJS container
-and one PostgreSQL container.
-
-Files:
-
-- `Dockerfile`: builds the NestJS application image with the project
-  dependencies and source code.
-- `docker-compose.yml`: starts the `app` and `postgres` services, defines the
-  shared network, and declares the named PostgreSQL volume.
-- `.dockerignore`: keeps local-only files and large folders out of the Docker
-  build context.
-
-Notes:
-
-- The app container connects to PostgreSQL using `DB_HOST=postgres`, which is
-  the Compose service name.
-- Docker Compose forces `DATABASE_ENABLED=true` for the app container, even if
-  your local `.env` disables the database for other workflows.
-- PostgreSQL data is persisted in the named volume `postgres_data`.
-- App dependencies inside the container are persisted in the named volume
-  `app_node_modules`.
-- Both containers are attached to the explicit `tool-caller-network`.
-- `PORT` controls both the NestJS listen port and the published app port in
-  Docker Compose.
-- The application source code is mounted into the container, and the app runs
-  with `npm run start:dev` for hot reload during local development.
-- `depends_on` is used with a PostgreSQL health check to improve startup
-  ordering, but the setup still stays development-focused.
-
-Development sync behavior:
-
-- after the first `docker compose up --build`, local source changes are synced
-  into the app container through a bind mount
-- Nest runs in watch mode inside Docker, so code changes trigger automatic
-  reloads without rebuilding the image
-- if you change dependencies in `package.json`, rebuild the container with
-  `docker compose up --build`
 
 ## 🧠 What The Code Does
 
@@ -271,183 +175,174 @@ Multi-turn persisted flow:
   conversation can move from status lookup to item lookup without losing
   continuity
 
-## 📬 API Example
+## 📬 API Definition
 
-Single-turn request:
+Endpoint:
+
+```text
+POST /ask
+```
 
 Headers:
 
-```text
-x-user-id: user-1
-```
+| Header      | Required | Description                                                                                                                                   |
+| ----------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `x-user-id` | Yes      | Application-level user identifier used to track conversation ownership and ensure a user can only continue conversations that belong to them. |
 
-Body:
+Request body:
+
+| Field            | Type                                  | Required | Default      | Description                                                                                                                                                                                                    |
+| ---------------- | ------------------------------------- | -------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message`        | `string`                              | Yes      | N/A          | Latest user message. Must be a non-empty string with at least 3 characters.                                                                                                                                    |
+| `conversationId` | `string` UUID                         | No       | N/A          | Existing conversation ID. Send it to continue a multi-turn conversation, especially after clarification questions. Omit it to create a new conversation.                                                       |
+| `mode`           | `'ORDER_STATUS_ONLY' \| 'ORDER_FULL'` | No       | `ORDER_FULL` | Selects the internal system prompt used for the LLM call. `ORDER_STATUS_ONLY` restricts the assistant to order status support. `ORDER_FULL` allows both status and item questions within the prototype limits. |
+
+Response body:
+
+| Field            | Type             | Description                                                                             |
+| ---------------- | ---------------- | --------------------------------------------------------------------------------------- |
+| `conversationId` | `string` UUID    | Conversation ID created or reused by the request. Use this value in follow-up requests. |
+| `type`           | `'final_answer'` | Response type returned by the `/ask` endpoint.                                          |
+| `content`        | `string`         | Final assistant answer.                                                                 |
+
+Validation notes:
+
+- invalid or missing `x-user-id` returns a validation error
+- invalid `conversationId` values are rejected
+- invalid `mode` values are rejected
+- raw system prompt text is never accepted through the public API
+
+## 📬 API Examples
+
+Single-turn status request in `ORDER_STATUS_ONLY` mode:
 
 ```json
 {
-  "message": "I want to know the status of my order 789",
+  "message": "I would like to know the status of my order 123",
+  "mode": "ORDER_STATUS_ONLY"
+}
+```
+
+Response:
+
+```json
+{
+  "conversationId": "4d520f4d-82e5-4402-8828-b809a9cde045",
+  "type": "final_answer",
+  "content": "Your order 123 has a status of **PAID**."
+}
+```
+
+Default mode status request:
+
+```json
+{
+  "message": "I would like to know the status of my order 123"
+}
+```
+
+Response:
+
+```json
+{
+  "conversationId": "6c946605-8f24-42d8-90ce-8229a66ea111",
+  "type": "final_answer",
+  "content": "Your order 123 has been **PAID**."
+}
+```
+
+Out-of-scope request:
+
+```json
+{
+  "message": "I would like to have the pope's WhatsApp"
+}
+```
+
+Response:
+
+```json
+{
+  "conversationId": "5622b1e3-e212-4d84-b0ab-fcf314880ef9",
+  "type": "final_answer",
+  "content": "I appreciate the question, but I'm specifically designed to help with order support. I can assist you with:\n\n- **Order status** - checking the status of an order by its ID\n- **Order items** - finding out what items are in an order by its ID\n\nI don't have access to information about public figures, contact details, or anything outside of order-related queries.\n\nIs there an order I can help you with instead?"
+}
+```
+
+Multi-turn clarification request:
+
+```json
+{
+  "message": "I would like to know the status of my order"
+}
+```
+
+Clarification response:
+
+```json
+{
+  "conversationId": "97a10983-d1c2-4532-8c91-b94056e10b0a",
+  "type": "final_answer",
+  "content": "I'd be happy to help you check your order status! Could you please provide your **order ID**? Once you give me that, I can look up the current status for you."
+}
+```
+
+Follow-up request with the same `conversationId`:
+
+```json
+{
+  "conversationId": "97a10983-d1c2-4532-8c91-b94056e10b0a",
+  "message": "The order id is 123"
+}
+```
+
+Final response:
+
+```json
+{
+  "conversationId": "97a10983-d1c2-4532-8c91-b94056e10b0a",
+  "type": "final_answer",
+  "content": "Your order status is **PAID**. \n\nIs there anything else you'd like to know about your order?"
+}
+```
+
+Multi-turn item request in `ORDER_STATUS_ONLY` mode:
+
+```json
+{
+  "conversationId": "97a10983-d1c2-4532-8c91-b94056e10b0a",
+  "message": "And what are the items of this order?",
+  "mode": "ORDER_STATUS_ONLY"
+}
+```
+
+Capability limitation response:
+
+```json
+{
+  "conversationId": "97a10983-d1c2-4532-8c91-b94056e10b0a",
+  "type": "final_answer",
+  "content": "I don't have the capability to provide information about order items. I can only assist with order status inquiries.\n\nIf you need details about what's in your order, please contact customer service for further assistance."
+}
+```
+
+Multi-turn item request in `ORDER_FULL` mode:
+
+```json
+{
+  "conversationId": "97a10983-d1c2-4532-8c91-b94056e10b0a",
+  "message": "And what are the items of this order?",
   "mode": "ORDER_FULL"
 }
 ```
 
-Success response:
+Response:
 
 ```json
 {
-  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
+  "conversationId": "97a10983-d1c2-4532-8c91-b94056e10b0a",
   "type": "final_answer",
-  "content": "Your order 789 has been **DELIVERED**! Your order has successfully reached you."
-}
-```
-
-Single-turn items request:
-
-Headers:
-
-```text
-x-user-id: user-1
-```
-
-Body:
-
-```json
-{
-  "message": "I want to know the items of my order 123",
-  "mode": "ORDER_FULL"
-}
-```
-
-Success response:
-
-```json
-{
-  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
-  "type": "final_answer",
-  "content": "Your order 123 contains the following items:\n- Keyboard\n- Mouse"
-}
-```
-
-Multi-turn first request:
-
-Headers:
-
-```text
-x-user-id: user-1
-```
-
-Body:
-
-```json
-{
-  "message": "What is the status of my order?",
-  "mode": "ORDER_STATUS_ONLY"
-}
-```
-
-Example first response:
-
-```json
-{
-  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
-  "type": "final_answer",
-  "content": "Which order?"
-}
-```
-
-Multi-turn follow-up request:
-
-Headers:
-
-```text
-x-user-id: user-1
-```
-
-Body:
-
-```json
-{
-  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
-  "message": "order 123",
-  "mode": "ORDER_STATUS_ONLY"
-}
-```
-
-Status-only item request example:
-
-```json
-{
-  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
-  "message": "What are the items of this order?",
-  "mode": "ORDER_STATUS_ONLY"
-}
-```
-
-Expected behavior:
-
-```json
-{
-  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
-  "type": "final_answer",
-  "content": "The assistant explains that this mode only supports order status."
-}
-```
-
-Example follow-up response:
-
-```json
-{
-  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
-  "type": "final_answer",
-  "content": "Your order #123 has a status of **PAID**."
-}
-```
-
-Multi-turn capability switch example:
-
-First request:
-
-```json
-{
-  "message": "I want to know the status of my order 123"
-}
-```
-
-First response:
-
-```json
-{
-  "conversationId": "341a2682-d929-4d7f-9e03-33a6470d2369",
-  "type": "final_answer",
-  "content": "Your order #123 status is: **PAID**"
-}
-```
-
-Follow-up request using the same conversation:
-
-```json
-{
-  "conversationId": "341a2682-d929-4d7f-9e03-33a6470d2369",
-  "message": "I want to know the items of my order 123"
-}
-```
-
-Follow-up response:
-
-```json
-{
-  "conversationId": "341a2682-d929-4d7f-9e03-33a6470d2369",
-  "type": "final_answer",
-  "content": "Your order 123 contains the following items:\n- Keyboard\n- Mouse"
-}
-```
-
-Order not found response:
-
-```json
-{
-  "conversationId": "2c3a2f2d-09f7-46b8-8f93-53c534c96531",
-  "type": "final_answer",
-  "content": "The status of your order **ID_INEXISTENT** is **NOT_FOUND**. \n\nThis means the order could not be found in the system. Please verify that you've provided the correct order ID. If you believe this is an error or have any questions, please double-check your order confirmation details."
+  "content": "Your order (123) contains the following items:\n- Keyboard\n- Mouse\n\nIs there anything else you'd like to know?"
 }
 ```
 
@@ -604,30 +499,6 @@ Below are sanitized examples of the runtime logs produced during `/ask`.
 [Nest] LOG   [AskLogger] Received final_answer from LLM during follow-up ask flow
 ```
 
-Items lookup example:
-
-```text
-[Nest] LOG   [AskLogger] Calling LLM for initial ask flow
-[Nest] DEBUG [AskLogger] initial messages: [{"role":"system","contentPreview":"You are an assistant for order support experiments.\nYou can answer directly or call a tool when backend data is required..."},{"role":"user","contentPreview":"I want to know the items of my order ***"}]
-
-[Nest] LOG   [AnthropicLogger] Sending request to Anthropic
-[Nest] DEBUG [AnthropicLogger] Tools: [{"name":"getOrderStatus","description":"Returns the status of an order by its ID."},{"name":"getOrderItems","description":"Returns the items contained in an order by its ID."}]
-[Nest] DEBUG [AnthropicLogger] Tool count: 2
-[Nest] LOG   [AnthropicLogger] Anthropic responded with stop reason tool_use
-[Nest] DEBUG [AnthropicLogger] Tool use block: {"type":"tool_use","id":"toolu_xxx","name":"getOrderItems","input":{"orderId":"***"}}
-[Nest] LOG   [AnthropicLogger] Anthropic requested tool getOrderItems
-
-[Nest] LOG   [AskLogger] Received tool_call from LLM during initial ask flow
-[Nest] LOG   [AskLogger] Executing tool getOrderItems for order *23
-[Nest] DEBUG [AskLogger] Tool result: {"orderId":"***","found":true,"items":["Keyboard","Mouse"]}
-[Nest] LOG   [AskLogger] Calling LLM for follow-up ask flow
-
-[Nest] LOG   [AnthropicLogger] Sending request to Anthropic
-[Nest] DEBUG [AnthropicLogger] Mapped messages: [{"role":"user","content":"I want to know the items of my order ***"},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_xxx","name":"getOrderItems","input":{"orderId":"***"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_xxx","content":"{\"orderId\":\"***\",\"found\":true,\"items\":[\"Keyboard\",\"Mouse\"]}"}]}]
-[Nest] LOG   [AnthropicLogger] Anthropic responded with stop reason end_turn
-[Nest] LOG   [AnthropicLogger] Anthropic returned a final answer
-```
-
 These logs are useful for understanding:
 
 - what was sent to the provider
@@ -635,18 +506,9 @@ These logs are useful for understanding:
 - what business result was returned by the application
 - when the final answer came back
 - whether the runtime actually exposed the expected set of tools to the model
+- Save API call credits 💰
 
-## 🧩 Runtime Version Alignment
-
-This repository also includes:
-
-- `.nvmrc`
-- `.npmrc`
-- `engines` in `package.json`
-
-These files keep local development and CI aligned on the expected Node.js and npm versions.
-
-## 🚀 Next Steps
+## 🚀 Next Steps (completed)
 
 - [x] add multi-turn conversation
 - [x] add one more tool, `getOrderItems`, to explore multi-tool scenarios

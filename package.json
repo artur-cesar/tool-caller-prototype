@@ -18,6 +18,8 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "start:container": "docker compose up -d",
+    "logs": "docker logs -f ",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest --config ./jest.config.ts",
     "test:watch": "jest --config ./jest.config.ts --watch",
