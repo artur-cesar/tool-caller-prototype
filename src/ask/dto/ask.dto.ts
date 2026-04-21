@@ -1,10 +1,13 @@
 import {
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   MinLength,
 } from 'class-validator';
+
+import { AskMode } from '../ask-mode.enum';
 
 export class AskDto {
   @IsString()
@@ -15,4 +18,8 @@ export class AskDto {
   @IsOptional()
   @IsUUID()
   conversationId?: string;
+
+  @IsOptional()
+  @IsEnum(AskMode)
+  mode?: AskMode;
 }

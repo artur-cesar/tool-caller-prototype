@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { AskController } from './ask.controller';
 import { AskService } from './ask.service';
+import { AskMode } from './ask-mode.enum';
 
 describe('AskController', () => {
   let controller: AskController;
@@ -36,6 +37,7 @@ describe('AskController', () => {
       {
         message: 'What is the status of order 123?',
         conversationId: 'conversation-1',
+        mode: AskMode.ORDER_STATUS_ONLY,
       },
       'user-1',
     );
@@ -45,6 +47,7 @@ describe('AskController', () => {
         userId: 'user-1',
         message: 'What is the status of order 123?',
         conversationId: 'conversation-1',
+        mode: AskMode.ORDER_STATUS_ONLY,
       }),
     );
     expect(result).toEqual({

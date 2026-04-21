@@ -14,6 +14,7 @@ export class AskController {
       userId,
       message: body.message,
       conversationId: body.conversationId,
+      mode: body.mode,
     });
   }
 }
