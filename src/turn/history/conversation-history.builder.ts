@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { ASK_SYSTEM_PROMPT } from '../../ask/prompts/system.prompt';
+import { ORDER_FULL_SYSTEM_PROMPT } from '../../ask/prompts/system.prompt';
 import { Conversation } from '../../conversation/conversation.entity';
 import { LlmMessage } from '../../llm/types/llm.types';
 import { MessageService } from '../../message/message.service';
@@ -15,7 +15,10 @@ export class ConversationHistoryBuilder {
     private readonly truncator: ConversationHistoryTruncator,
   ) {}
 
-  async build(conversation: Pick<Conversation, 'id' | 'systemPrompt'>) {
+  async build(
+    conversation: Pick<Conversation, 'id' | 'systemPrompt'>,
+    systemPrompt = conversation.systemPrompt || ORDER_FULL_SYSTEM_PROMPT,
+  ) {
     const history = await this.messageService.listByConversationId(
       conversation.id,
     );
@@ -23,7 +26,7 @@ export class ConversationHistoryBuilder {
     const messages: LlmMessage[] = [
       {
         role: 'system',
-        content: conversation.systemPrompt || ASK_SYSTEM_PROMPT,
+        content: systemPrompt,
       },
       ...history.map((message) => this.messageMapper.map(message)),
     ];

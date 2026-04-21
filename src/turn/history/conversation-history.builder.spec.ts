@@ -1,3 +1,4 @@
+import { ORDER_FULL_SYSTEM_PROMPT } from '../../ask/prompts/system.prompt';
 import { LlmMessage } from '../../llm/types/llm.types';
 import { MessageService } from '../../message/message.service';
 import { MessageRole } from '../../message/message-role.enum';
@@ -114,9 +115,26 @@ describe('ConversationHistoryBuilder', () => {
     expect(result).toEqual([
       {
         role: 'system',
-        content: expect.stringContaining(
-          'You are an assistant for order support experiments.',
-        ),
+        content: ORDER_FULL_SYSTEM_PROMPT,
+      },
+    ]);
+  });
+
+  it('should prefer the selected system prompt over the stored conversation prompt', async () => {
+    messageService.listByConversationId.mockResolvedValue([] as never[]);
+
+    const result = await service.build(
+      {
+        id: 'conversation-1',
+        systemPrompt: 'stored system prompt',
+      },
+      'selected system prompt',
+    );
+
+    expect(result).toEqual([
+      {
+        role: 'system',
+        content: 'selected system prompt',
       },
     ]);
   });
