@@ -20,8 +20,14 @@ export class TurnRunnerService {
     private readonly logger: AskLogger,
   ) {}
 
-  async run(conversation: Conversation): Promise<AskResponse> {
-    const messages = await this.historyBuilder.build(conversation);
+  async run(
+    conversation: Conversation,
+    systemPrompt = conversation.systemPrompt,
+  ): Promise<AskResponse> {
+    const messages = await this.historyBuilder.build(
+      conversation,
+      systemPrompt,
+    );
 
     this.logger.llmRequest('initial', messages);
 
@@ -85,7 +91,10 @@ export class TurnRunnerService {
       JSON.stringify(toolExecution.result),
     );
 
-    const followUpMessages = await this.historyBuilder.build(conversation);
+    const followUpMessages = await this.historyBuilder.build(
+      conversation,
+      systemPrompt,
+    );
 
     this.logger.llmRequest('follow-up', followUpMessages);
 

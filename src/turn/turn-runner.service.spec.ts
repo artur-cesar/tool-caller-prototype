@@ -72,6 +72,10 @@ describe('TurnRunnerService', () => {
 
     const result = await service.run(conversation);
 
+    expect(historyBuilder.build).toHaveBeenCalledWith(
+      conversation,
+      'stored system prompt',
+    );
     expect(llmGateway.generate).toHaveBeenCalledTimes(1);
     expect(messageService.createAssistantMessage).toHaveBeenCalledWith(
       'conversation-1',
@@ -161,6 +165,16 @@ describe('TurnRunnerService', () => {
 
     const result = await service.run(conversation);
 
+    expect(historyBuilder.build).toHaveBeenNthCalledWith(
+      1,
+      conversation,
+      'stored system prompt',
+    );
+    expect(historyBuilder.build).toHaveBeenNthCalledWith(
+      2,
+      conversation,
+      'stored system prompt',
+    );
     expect(toolExecutorService.execute).toHaveBeenCalledWith('getOrderStatus', {
       orderId: '123',
     });
