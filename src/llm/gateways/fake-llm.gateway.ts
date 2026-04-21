@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import {
+  ORDER_FULL_SYSTEM_PROMPT,
+  ORDER_STATUS_ONLY_SYSTEM_PROMPT,
+} from '../../ask/prompts/system.prompt';
 import { ToolDefinition } from '../../tools/tools.type';
 import { isProduction, summarizeMessages, truncate } from '../../utils';
 import { LlmGateway } from '../types/llm.gateway';
@@ -74,6 +78,10 @@ export class FakeLlmGateway implements LlmGateway {
       };
     }
 
+    const systemMessage =
+      input.messages.find((message) => message.role === 'system')?.content ??
+      ORDER_FULL_SYSTEM_PROMPT;
+    const isStatusOnlyMode = systemMessage === ORDER_STATUS_ONLY_SYSTEM_PROMPT;
     const nonSystemMessages = input.messages.filter(
       (message) => message.role !== 'system',
     );
@@ -83,14 +91,26 @@ export class FakeLlmGateway implements LlmGateway {
     const previousMessages = nonSystemMessages.slice(0, -1);
 
     const normalized = lastUserMessage.toLowerCase();
-    const orderIdMatch = normalized.match(/\b\d{3,}\b/);
+    const latestOrderId = normalized.match(/\b\d{3,}\b/)?.[0];
+    const previousOrderId = [...previousMessages]
+      .reverse()
+      .map((message) => message.content.match(/\b\d{3,}\b/)?.[0])
+      .find(Boolean);
+    const refersToPreviousOrder =
+      /\b(this|that|same)\s+order\b/i.test(lastUserMessage) ||
+      /\b(este|esse|mesmo|desse|deste)\s+pedido\b/i.test(lastUserMessage);
+    const orderId =
+      latestOrderId ?? (refersToPreviousOrder ? previousOrderId : undefined);
+    const mentionsOrder =
+      normalized.includes('pedido') || normalized.includes('order');
     const wantsOrderItems =
       normalized.includes('item') || normalized.includes('items');
-
-    const wantsOrderStatus =
-      normalized.includes('pedido') ||
-      normalized.includes('order') ||
-      normalized.includes('status');
+    const wantsOrderStatus = normalized.includes('status');
+    const isCompositeOrderRequest = wantsOrderStatus && wantsOrderItems;
+    const isContinuingOrderItemsLookup = previousMessages.some(
+      (message) =>
+        message.role === 'user' && /item|items/i.test(message.content),
+    );
     const isClarifyingOrderLookup =
       previousMessages.some((message) => {
         if (message.role === 'user') {
@@ -119,13 +139,34 @@ export class FakeLlmGateway implements LlmGateway {
     this.debug('Order detection', {
       wantsOrderItems,
       wantsOrderStatus,
+      isCompositeOrderRequest,
+      isContinuingOrderItemsLookup,
       isClarifyingOrderLookup,
-      orderIdMatch: orderIdMatch?.[0],
+      orderId,
+      isStatusOnlyMode,
     });
 
+    if (isStatusOnlyMode && (wantsOrderItems || isContinuingOrderItemsLookup)) {
+      return {
+        type: 'final_answer',
+        content:
+          'I can only help with order status in this mode. I do not have the necessary capability to answer order item requests.',
+      };
+    }
+
+    if (isCompositeOrderRequest) {
+      return {
+        type: 'final_answer',
+        content:
+          'This prototype handles one backend tool action at a time. Please ask for either order status or order items.',
+      };
+    }
+
     if (
-      (wantsOrderStatus || wantsOrderItems || isClarifyingOrderLookup) &&
-      orderIdMatch
+      ((mentionsOrder && wantsOrderStatus) ||
+        wantsOrderItems ||
+        isClarifyingOrderLookup) &&
+      orderId
     ) {
       if (wantsOrderItems) {
         this.logger.log('Fake LLM is issuing an items tool call');
@@ -135,17 +176,12 @@ export class FakeLlmGateway implements LlmGateway {
           toolName: 'getOrderItems',
           toolUseId: 'fake-tool-use-id',
           arguments: {
-            orderId: orderIdMatch[0],
+            orderId,
           },
         };
       }
 
-      if (
-        previousMessages.some(
-          (message) =>
-            message.role === 'user' && /item|items/i.test(message.content),
-        )
-      ) {
+      if (isContinuingOrderItemsLookup) {
         this.logger.log('Fake LLM is continuing an items lookup');
         return {
           type: 'tool_call',
@@ -153,7 +189,7 @@ export class FakeLlmGateway implements LlmGateway {
           toolName: 'getOrderItems',
           toolUseId: 'fake-tool-use-id',
           arguments: {
-            orderId: orderIdMatch[0],
+            orderId,
           },
         };
       }
@@ -165,12 +201,12 @@ export class FakeLlmGateway implements LlmGateway {
         toolName: 'getOrderStatus',
         toolUseId: 'fake-tool-use-id',
         arguments: {
-          orderId: orderIdMatch[0],
+          orderId,
         },
       };
     }
 
-    if ((wantsOrderStatus || wantsOrderItems) && !orderIdMatch) {
+    if ((wantsOrderStatus || wantsOrderItems || mentionsOrder) && !orderId) {
       return {
         type: 'final_answer',
         content: 'Which order?',
